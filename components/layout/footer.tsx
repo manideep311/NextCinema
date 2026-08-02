@@ -1,0 +1,44 @@
+﻿import { Film } from "lucide-react";
+
+const FOOTER_LINKS = {
+  Product: ["Features", "Recommendations", "Trending"],
+  Company: ["About", "Blog", "Contact"],
+  Legal: ["Privacy", "Terms"],
+};
+
+export function Footer() {
+  return (
+    <footer className="border-t border-white/10 mt-12">
+      <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="col-span-2 md:col-span-1">
+          <div className="flex items-center gap-2 font-heading font-bold mb-3">
+            <Film className="size-5 text-primary" />
+            CineMatch <span className="gradient-text">AI</span>
+          </div>
+          <p className="text-muted text-sm">
+            AI-powered movie recommendations, explained clearly.
+          </p>
+        </div>
+
+        {Object.entries(FOOTER_LINKS).map(([category, links]) => (
+          <div key={category}>
+            <h4 className="font-semibold text-sm mb-3">{category}</h4>
+            <ul className="space-y-2">
+              {links.map((link) => (
+                <li key={link}>
+                  <a href="#" className="text-muted text-sm hover:text-text transition-colors">
+                    {link}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-white/10 py-6 text-center text-muted text-xs">
+        © {new Date().getFullYear()} CineMatch AI. Built as a portfolio project.
+      </div>
+    </footer>
+  );
+}
