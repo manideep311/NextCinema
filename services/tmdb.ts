@@ -17,7 +17,23 @@ export function getTrendingMovies(page = 1) {
     revalidateSeconds: 3600, // trending shifts slowly enough for 1hr cache
   });
 }
+export interface TmdbMovieWithExtras extends TmdbMovieDetails {
+  credits: TmdbCredits;
+  keywords: TmdbKeywordsResponse;
+}
 
+/**
+ * Fetches details + credits + keywords in a single request via TMDB's
+ * append_to_response. This is what powers MovieProfile construction —
+ * both for a movie's own detail page and for building recommendation
+ * candidates — without N+1 separate calls per movie.
+ */
+export function getMovieWithExtras(movieId: number) {
+  return tmdbFetch<TmdbMovieWithExtras>(`/movie/${movieId}`, {
+    params: { append_to_response: "credits,keywords" },
+    revalidateSeconds: 3600,
+  });
+}
 /** Full list of official TMDB genres, used for genre filter chips. */
 export function getGenres() {
   return tmdbFetch<{ genres: TmdbGenre[] }>("/genre/movie/list", {
