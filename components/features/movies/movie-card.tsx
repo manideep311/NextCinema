@@ -5,21 +5,16 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
 import type { MovieProfile } from "@/types/movie";
+import { FavoriteButton } from "@/components/features/movies/favorite-button";
+import { WatchlistButton } from "@/components/features/movies/watchlist-button";
 
 interface MovieCardProps {
   movie: Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
-  /** Optional match score (0-100) — shown only when this card appears in a recommendations context */
   matchScore?: number;
 }
 
 const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
-/**
- * The single movie poster card used across dashboard, search, and
- * recommendation pages. One component, one set of hover/loading states —
- * changing "how a movie card looks" anywhere in the app means editing
- * this one file.
- */
 export function MovieCard({ movie, matchScore }: MovieCardProps) {
   return (
     <Link href={`/dashboard/movie/${movie.id}`}>
@@ -42,6 +37,13 @@ export function MovieCard({ movie, matchScore }: MovieCardProps) {
               No poster available
             </div>
           )}
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+          <div className="absolute top-2 left-2 flex flex-col gap-1.5">
+            <FavoriteButton movie={movie} />
+            <WatchlistButton movie={movie} />
+          </div>
 
           {matchScore !== undefined && (
             <div className="absolute top-2 right-2 glass rounded-full px-2 py-1 text-xs font-semibold text-accent">

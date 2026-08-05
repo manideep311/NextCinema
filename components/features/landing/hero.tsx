@@ -1,9 +1,10 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Sparkles, ChevronDown } from "lucide-react";
 import { FloatingMovieCard } from "@/components/features/landing/floating-movie-card";
+import { AiSearchDemo } from "@/components/features/landing/ai-search-demo";
 import type { MovieProfile } from "@/types/movie";
 
 interface HeroProps {
@@ -24,17 +25,37 @@ const CARD_LAYOUTS = [
 ];
 
 export function Hero({ featuredMovies }: HeroProps) {
+  const sectionRef = useRef<HTMLElement>(null);
+  const [spotlightPos, setSpotlightPos] = useState({ x: 50, y: 30 });
+
+  function handleMouseMove(e: React.MouseEvent<HTMLElement>) {
+    const rect = sectionRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setSpotlightPos({
+      x: ((e.clientX - rect.left) / rect.width) * 100,
+      y: ((e.clientY - rect.top) / rect.height) * 100,
+    });
+  }
+
+  const spotlight = `radial-gradient(600px circle at ${spotlightPos.x}% ${spotlightPos.y}%, rgba(124,58,237,0.14), transparent 70%)`;
+
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden px-6">
-      {/* Animated gradient glow behind everything */}
+    <section
+      ref={sectionRef}
+      onMouseMove={handleMouseMove}
+      className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 pt-24 pb-12"
+    >
+      {/* Aurora base layer */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-10"
+        className="absolute inset-0 -z-20"
         style={{
           background:
-            "radial-gradient(circle at 50% 30%, rgba(124,58,237,0.25), transparent 60%), radial-gradient(circle at 80% 70%, rgba(6,182,212,0.15), transparent 50%)",
+            "radial-gradient(circle at 50% 20%, rgba(124,58,237,0.28), transparent 55%), radial-gradient(circle at 85% 75%, rgba(6,182,212,0.18), transparent 50%), radial-gradient(circle at 10% 80%, rgba(59,130,246,0.15), transparent 45%)",
         }}
       />
+      {/* Mouse-follow spotlight */}
+      <motion.div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: spotlight }} />
 
       {featuredMovies.slice(0, CARD_LAYOUTS.length).map((movie, i) => (
         <FloatingMovieCard
@@ -57,28 +78,33 @@ export function Hero({ featuredMovies }: HeroProps) {
         </div>
 
         <h1 className="font-heading text-4xl md:text-6xl font-bold leading-tight mb-6">
-          Find your next
+          Discover your next
           <br />
           <span className="gradient-text">favorite movie</span>
         </h1>
 
         <p className="text-muted text-lg mb-8 max-w-lg mx-auto">
-          CineMatch AI learns what you love — genres, cast, mood — and
-          explains exactly why each recommendation fits.
+          Every great story begins with a good recommendation. NextCinema
+          learns what you love — genres, cast, mood — and explains exactly
+          why each pick fits.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button
-            size="lg"
-            className="bg-primary hover:bg-primary/90 rounded-xl group"
-          >
-            Start Matching
-            <ArrowRight className="size-4 ml-1 transition-transform group-hover:translate-x-1" />
-          </Button>
-          <Button size="lg" variant="outline" className="rounded-xl border-white/10">
-            See How It Works
-          </Button>
+        <div className="mb-8">
+          <AiSearchDemo />
         </div>
+
+        <a href="#ai-preview" className="inline-block text-xs text-muted hover:text-text transition-colors">
+          See how it works
+        </a>
+      </motion.div>
+
+      <motion.div
+        animate={{ y: [0, 8, 0] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-muted"
+        aria-hidden="true"
+      >
+        <ChevronDown className="size-5" />
       </motion.div>
     </section>
   );

@@ -1,8 +1,11 @@
-﻿import { Heart, Clock } from "lucide-react";
-import { getTrendingMovies, getPopularMovies } from "@/services/tmdb";
+import { getTrendingMovies, getPopularMovies, getTopRatedMovies, getUpcomingMovies } from "@/services/tmdb";
+import { getSession } from "@/lib/auth/session";
 import { DashboardSection } from "@/components/features/dashboard/dashboard-section";
-import { EmptyState } from "@/components/features/dashboard/empty-state";
 import { MovieGrid } from "@/components/features/movies/movie-grid";
+import { ForYouSection } from "@/components/features/dashboard/for-you-section";
+import { ContinueWatchingSection } from "@/components/features/dashboard/continue-watching-section";
+import { FavoritesSection } from "@/components/features/dashboard/favorites-section";
+import { WatchlistSection } from "@/components/features/dashboard/watchlist-section";
 
 function toCardMovies(results: Awaited<ReturnType<typeof getTrendingMovies>>["results"]) {
   return results.map((movie) => ({
@@ -15,15 +18,27 @@ function toCardMovies(results: Awaited<ReturnType<typeof getTrendingMovies>>["re
 }
 
 export default async function DashboardOverview() {
-  const [trending, popular] = await Promise.all([
+  const [session, trending, popular, topRated, upcoming] = await Promise.all([
+    getSession(),
     getTrendingMovies(),
     getPopularMovies(),
+    getTopRatedMovies(),
+    getUpcomingMovies(),
   ]);
 
   return (
     <div>
-      <h1 className="font-heading text-2xl font-bold mb-1">Welcome back</h1>
-      <p className="text-muted mb-8">Here's what's happening in movies today.</p>
+      <h1 className="font-heading text-2xl font-bold mb-1">
+        {session ? `Welcome back, ${session.name.split(" ")[0]}` : "Welcome back"}
+      </h1>
+      <p className="text-muted mb-6">Here&apos;s what&apos;s happening in movies today.</p>
+
+      {session && (
+        <>
+          <ForYouSection />
+          <ContinueWatchingSection limit={10} />
+        </>
+      )}
 
       <DashboardSection title="Trending This Week">
         <MovieGrid movies={toCardMovies(trending.results.slice(0, 10))} />
@@ -33,21 +48,20 @@ export default async function DashboardOverview() {
         <MovieGrid movies={toCardMovies(popular.results.slice(0, 10))} />
       </DashboardSection>
 
-      <DashboardSection title="Continue Watching">
-        <EmptyState
-          icon={Clock}
-          title="Nothing here yet"
-          description="Movies you start exploring will show up here so you can pick back up."
-        />
+      <DashboardSection title="Highly Rated">
+        <MovieGrid movies={toCardMovies(topRated.results.slice(0, 10))} />
       </DashboardSection>
 
-      <DashboardSection title="Favorites">
-        <EmptyState
-          icon={Heart}
-          title="No favorites yet"
-          description="Tap the heart on any movie to save it here for later."
-        />
+      <DashboardSection title="Upcoming">
+        <MovieGrid movies={toCardMovies(upcoming.results.slice(0, 10))} />
       </DashboardSection>
+
+      {session && (
+        <>
+          <FavoritesSection limit={10} />
+          <WatchlistSection limit={10} />
+        </>
+      )}
     </div>
   );
 }

@@ -2,8 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Menu, X, Film } from "lucide-react";
+import Link from "next/link";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/components/providers/auth-provider";
+import { Logo } from "@/components/ui/logo";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
@@ -19,6 +22,7 @@ const NAV_LINKS = [
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
@@ -32,14 +36,13 @@ export function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-colors duration-300 ${
-        isScrolled ? "glass" : "bg-transparent"
+        isScrolled ? "bg-background border-b border-white/10" : "bg-transparent"
       }`}
     >
       <nav className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-        <a href="/" className="flex items-center gap-2 font-heading font-bold text-lg">
-          <Film className="size-5 text-primary" />
-          CineMatch <span className="gradient-text">AI</span>
-        </a>
+        <Link href="/" className="flex items-center gap-2 font-heading font-bold text-lg">
+          <Logo />
+        </Link>
 
         <div className="hidden md:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
@@ -54,9 +57,15 @@ export function Navbar() {
         </div>
 
         <div className="hidden md:block">
-          <Button className="bg-primary hover:bg-primary/90 rounded-xl">
-            Get Started
-          </Button>
+          {!isLoading && user ? (
+            <Link href="/dashboard">
+              <Button className="bg-primary hover:bg-primary/90 rounded-xl">Go to Dashboard</Button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <Button className="bg-primary hover:bg-primary/90 rounded-xl">Sign in</Button>
+            </Link>
+          )}
         </div>
 
         <button
@@ -74,7 +83,7 @@ export function Navbar() {
           animate={{ height: "auto", opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="md:hidden glass mx-4 mb-4 rounded-xl px-6 py-4 flex flex-col gap-4"
+          className="md:hidden bg-background border border-white/10 mx-4 mb-4 rounded-xl px-6 py-4 flex flex-col gap-4"
         >
           {NAV_LINKS.map((link) => (
             <a
@@ -86,9 +95,17 @@ export function Navbar() {
               {link.label}
             </a>
           ))}
-          <Button className="bg-primary hover:bg-primary/90 rounded-xl w-full">
-            Get Started
-          </Button>
+          {!isLoading && user ? (
+            <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button className="bg-primary hover:bg-primary/90 rounded-xl w-full">
+                Go to Dashboard
+              </Button>
+            </Link>
+          ) : (
+            <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button className="bg-primary hover:bg-primary/90 rounded-xl w-full">Sign in</Button>
+            </Link>
+          )}
         </motion.div>
       )}
     </motion.header>

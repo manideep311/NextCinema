@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter, Sora } from "next/font/google";
 import "./globals.css";
+import { getSession } from "@/lib/auth/session";
+import { AuthProvider } from "@/components/providers/auth-provider";
+import { AssistantWidget } from "@/components/features/assistant/assistant-widget";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -15,17 +18,25 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: "CineMatch AI",
-  description: "AI-powered movie recommendations tailored to your taste.",
+  title: "NextCinema",
+  description: "Every great story begins with a good recommendation.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const session = await getSession();
+  const initialUser = session
+    ? { id: session.userId, email: session.email, name: session.name, role: session.role }
+    : null;
+
   return (
     <html lang="en" className="dark">
       <body className={`${inter.variable} ${sora.variable} antialiased`}>
-        {children}
+        <AuthProvider initialUser={initialUser}>
+          {children}
+          <AssistantWidget />
+        </AuthProvider>
       </body>
     </html>
   );

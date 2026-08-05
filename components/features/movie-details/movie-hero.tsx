@@ -1,6 +1,11 @@
-﻿import Image from "next/image";
+"use client";
+
+import Image from "next/image";
+import { motion } from "framer-motion";
 import { Star, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { FavoriteButton } from "@/components/features/movies/favorite-button";
+import { WatchlistButton } from "@/components/features/movies/watchlist-button";
 import type { MovieProfile } from "@/types/movie";
 
 interface MovieHeroProps {
@@ -20,23 +25,44 @@ function formatRuntime(minutes: number | null): string | null {
 }
 
 export function MovieHero({ movie, backdropPath, tagline, runtime }: MovieHeroProps) {
+  const actionMovie = {
+    id: movie.id,
+    title: movie.title,
+    posterPath: movie.posterPath,
+    voteAverage: movie.voteAverage,
+    releaseYear: movie.releaseYear,
+  };
+
   return (
     <div className="relative -mx-4 md:-mx-8 -mt-4 md:-mt-8 mb-8">
-      <div className="relative h-64 md:h-96 w-full">
+      <div className="relative h-64 md:h-96 w-full overflow-hidden">
         {backdropPath && (
-          <Image
-            src={`${IMAGE_BASE_URL}/w1280${backdropPath}`}
-            alt=""
-            fill
-            className="object-cover"
-            priority
-          />
+          <motion.div
+            initial={{ scale: 1.1, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="absolute inset-0"
+          >
+            <Image
+              src={`${IMAGE_BASE_URL}/w1280${backdropPath}`}
+              alt=""
+              fill
+              className="object-cover"
+              priority
+            />
+          </motion.div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/40 via-transparent to-transparent" />
       </div>
 
       <div className="relative -mt-24 md:-mt-32 px-4 md:px-8 flex flex-col md:flex-row gap-6">
-        <div className="w-32 md:w-48 shrink-0 rounded-xl overflow-hidden glass shadow-2xl">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="relative w-32 md:w-48 shrink-0 rounded-xl overflow-hidden glass shadow-2xl"
+        >
           {movie.posterPath ? (
             <Image
               src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
@@ -50,9 +76,18 @@ export function MovieHero({ movie, backdropPath, tagline, runtime }: MovieHeroPr
               No poster
             </div>
           )}
-        </div>
+          <div className="absolute top-2 left-2 flex flex-col gap-1.5">
+            <FavoriteButton movie={actionMovie} />
+            <WatchlistButton movie={actionMovie} />
+          </div>
+        </motion.div>
 
-        <div className="flex-1 pt-2 md:pt-16">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="flex-1 pt-2 md:pt-16"
+        >
           <h1 className="font-heading text-2xl md:text-4xl font-bold mb-1">{movie.title}</h1>
           {tagline && <p className="text-muted italic mb-3">{tagline}</p>}
 
@@ -77,7 +112,7 @@ export function MovieHero({ movie, backdropPath, tagline, runtime }: MovieHeroPr
               </Badge>
             ))}
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

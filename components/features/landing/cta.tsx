@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export function Cta() {
@@ -28,10 +29,12 @@ export function Cta() {
         <p className="text-muted mb-8 max-w-md mx-auto">
           Free to start. No credit card required.
         </p>
-        <Button size="lg" className="bg-primary hover:bg-primary/90 rounded-xl group">
-          Get Started Free
-          <ArrowRight className="size-4 ml-1 transition-transform group-hover:translate-x-1" />
-        </Button>
+        <Link href="/dashboard">
+          <Button size="lg" className="bg-primary hover:bg-primary/90 rounded-xl group">
+            Get Started Free
+            <ArrowRight className="size-4 ml-1 transition-transform group-hover:translate-x-1" />
+          </Button>
+        </Link>
       </motion.div>
     </section>
   );

@@ -1,4 +1,4 @@
-﻿import type { MovieProfile } from "@/types/movie";
+import type { MovieProfile } from "@/types/movie";
 import { MovieCard } from "@/components/features/movies/movie-card";
 import { MovieCardSkeleton } from "@/components/features/movies/movie-card-skeleton";
 

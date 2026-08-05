@@ -1,4 +1,4 @@
-﻿import { Film } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 
 const FOOTER_LINKS = {
   Product: ["Features", "Recommendations", "Trending"],
@@ -12,11 +12,10 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
         <div className="col-span-2 md:col-span-1">
           <div className="flex items-center gap-2 font-heading font-bold mb-3">
-            <Film className="size-5 text-primary" />
-            CineMatch <span className="gradient-text">AI</span>
+            <Logo />
           </div>
           <p className="text-muted text-sm">
-            AI-powered movie recommendations, explained clearly.
+            Every great story begins with a good recommendation.
           </p>
         </div>
 
@@ -37,7 +36,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-white/10 py-6 text-center text-muted text-xs">
-        © {new Date().getFullYear()} CineMatch AI. Built as a portfolio project.
+        © {new Date().getFullYear()} NextCinema. Built as a portfolio project.
       </div>
     </footer>
   );

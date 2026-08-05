@@ -8,6 +8,7 @@ import type {
   TmdbPaginatedResponse,
   TmdbGenre,
   TmdbKeywordsResponse,
+  TmdbWatchProvidersResponse,
 } from "@/types/tmdb";
 
 /** Movies trending this week — used on the dashboard/landing page. */
@@ -90,5 +91,67 @@ export function getPopularMovies(page = 1) {
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/movie/popular", {
     params: { page: String(page) },
     revalidateSeconds: 3600,
+  });
+}
+
+/** TMDB's own top-rated list — powers the dashboard's "Highly Rated" rail. */
+export function getTopRatedMovies(page = 1) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/movie/top_rated", {
+    params: { page: String(page) },
+    revalidateSeconds: 86400,
+  });
+}
+
+/** Not-yet-released movies — powers the dashboard's "Upcoming" rail. */
+export function getUpcomingMovies(page = 1) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/movie/upcoming", {
+    params: { page: String(page) },
+    revalidateSeconds: 3600,
+  });
+}
+
+/**
+ * Movies by original language, sorted by popularity — powers the
+ * "Categories" page (Tollywood/Bollywood/Kollywood/Mollywood are Telugu/Hindi/Tamil/Malayalam
+ * cinema respectively). TMDB has no "industry" field, so language is the
+ * closest reliable proxy it exposes.
+ */
+export function getMoviesByLanguage(languageCode: string, page = 1) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
+    params: {
+      with_original_language: languageCode,
+      sort_by: "popularity.desc",
+      page: String(page),
+    },
+    revalidateSeconds: 3600,
+  });
+}
+
+/**
+ * Movies matching any of the given genre IDs (OR, not AND — pipe-joined
+ * per TMDB's discover syntax), sorted by rating among well-voted movies.
+ * Powers mood/genre search (see lib/mood-lexicon.ts) — not cached long,
+ * since it's driven by free-text search input rather than a fixed rail.
+ */
+export function getMoviesByGenres(genreIds: number[], page = 1) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
+    params: {
+      with_genres: genreIds.join("|"),
+      sort_by: "vote_average.desc",
+      "vote_count.gte": "200", // filters out obscure/low-vote noise so results are actually recognizable
+      page: String(page),
+    },
+    revalidateSeconds: 300,
+  });
+}
+
+/**
+ * Streaming/rent/buy availability by country, powered by TMDB's JustWatch
+ * partnership. Cached for a day since availability doesn't change minute
+ * to minute — powers the movie detail page's "Where to Watch" section.
+ */
+export function getWatchProviders(movieId: number) {
+  return tmdbFetch<TmdbWatchProvidersResponse>(`/movie/${movieId}/watch/providers`, {
+    revalidateSeconds: 86400,
   });
 }

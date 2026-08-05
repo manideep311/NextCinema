@@ -24,10 +24,40 @@ interface TmdbFetchOptions {
   revalidateSeconds?: number;
 }
 
+const MAX_ATTEMPTS = 4;
+const RETRY_DELAY_MS = 300;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * True for transient network failures (dropped connection, DNS blip,
+ * timeout) worth retrying — as opposed to TMDB responding with a real
+ * HTTP error, which `tmdbFetch` throws as `TmdbApiError` and callers
+ * should not retry.
+ */
+function isTransientNetworkError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  // Node's fetch wraps the underlying cause (e.g. `ECONNRESET`) here.
+  const cause = (error as Error & { cause?: { code?: string } }).cause;
+  const code = cause?.code;
+  return (
+    error.name === "TypeError" &&
+    (code === "ECONNRESET" || code === "ETIMEDOUT" || code === "ECONNREFUSED" || code === "EAI_AGAIN" ||
+      error.message.includes("fetch failed"))
+  );
+}
+
 /**
  * Single low-level fetch wrapper. Every TMDB call in the app goes through
- * this function — auth headers, error handling, and caching are defined
- * once here instead of being copy-pasted at every call site.
+ * this function — auth headers, error handling, retrying, and caching are
+ * defined once here instead of being copy-pasted at every call site.
+ *
+ * Movie detail pages fan out into a dozen-plus concurrent TMDB requests
+ * (similar movies + full profiles for each candidate), which makes a
+ * single dropped connection much more likely to be hit on any given page
+ * load — hence the retry instead of just letting it bubble up as a 500.
  */
 export async function tmdbFetch<T>(
   path: string,
@@ -48,21 +78,39 @@ export async function tmdbFetch<T>(
     });
   }
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      accept: "application/json",
-    },
-    next: { revalidate: revalidateSeconds },
-  });
+  let lastError: unknown;
 
-  if (!response.ok) {
-    throw new TmdbApiError(
-      `TMDB request failed: ${response.statusText}`,
-      response.status,
-      path
-    );
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accept: "application/json",
+        },
+        next: { revalidate: revalidateSeconds },
+      });
+
+      if (!response.ok) {
+        throw new TmdbApiError(
+          `TMDB request failed: ${response.statusText}`,
+          response.status,
+          path
+        );
+      }
+
+      return (await response.json()) as T;
+    } catch (error) {
+      lastError = error;
+
+      // Real TMDB HTTP errors (404, 401, ...) shouldn't be retried — only network-level failures.
+      if (!isTransientNetworkError(error) || attempt === MAX_ATTEMPTS) {
+        throw error;
+      }
+
+      await sleep(RETRY_DELAY_MS * attempt);
+    }
   }
 
-  return response.json() as Promise<T>;
+  // Unreachable — the loop always either returns or throws — but keeps TypeScript happy.
+  throw lastError;
 }

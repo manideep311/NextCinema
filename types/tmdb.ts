@@ -19,6 +19,18 @@ export interface TmdbMovie {
   popularity: number;
   genre_ids: number[];
   adult: boolean;
+  original_language: string;
+}
+
+export interface TmdbProductionCompany {
+  id: number;
+  name: string;
+  logo_path: string | null;
+}
+
+export interface TmdbSpokenLanguage {
+  iso_639_1: string;
+  english_name: string;
 }
 
 export interface TmdbMovieDetails extends Omit<TmdbMovie, "genre_ids"> {
@@ -26,6 +38,11 @@ export interface TmdbMovieDetails extends Omit<TmdbMovie, "genre_ids"> {
   runtime: number | null;
   tagline: string | null;
   status: string;
+  budget: number;
+  revenue: number;
+  production_companies: TmdbProductionCompany[];
+  spoken_languages: TmdbSpokenLanguage[];
+  original_language: string;
 }
 
 export interface TmdbCastMember {
@@ -75,4 +92,28 @@ export interface TmdbKeyword {
 
 export interface TmdbKeywordsResponse {
   keywords: TmdbKeyword[];
+}
+
+export interface TmdbWatchProvider {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+  display_priority: number;
+}
+
+/** Per-region availability — every field is optional since a region may
+ *  have no streaming/rent/buy options at all, or be absent from `results`
+ *  entirely if TMDB has no data for that country. */
+export interface TmdbWatchProviderRegion {
+  link: string;
+  flatrate?: TmdbWatchProvider[];
+  rent?: TmdbWatchProvider[];
+  buy?: TmdbWatchProvider[];
+  free?: TmdbWatchProvider[];
+  ads?: TmdbWatchProvider[];
+}
+
+export interface TmdbWatchProvidersResponse {
+  id: number;
+  results: Record<string, TmdbWatchProviderRegion>;
 }
