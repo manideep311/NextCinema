@@ -42,8 +42,8 @@ export function TopNav() {
   }
 
   return (
-    <header className="md:hidden sticky top-0 z-40 bg-background border-b border-white/10 px-4 py-3 flex items-center">
-      <Link href="/" className="md:hidden flex items-center gap-2 font-heading font-bold">
+    <header className="md:hidden sticky top-0 z-40 bg-background border-b border-white/[0.06] px-4 py-3 flex items-center">
+      <Link href="/" className="md:hidden flex items-center gap-2 font-serif font-semibold">
         <Logo />
       </Link>
 
@@ -55,14 +55,14 @@ export function TopNav() {
             aria-label="Account menu"
           >
             <Avatar className="size-8">
-              <AvatarFallback className="bg-primary/20 text-primary text-sm">
+              <AvatarFallback className="bg-primary/15 text-primary text-sm">
                 {initials(user.name)}
               </AvatarFallback>
             </Avatar>
           </button>
         ) : (
           <Link href="/login">
-            <Button size="sm" variant="outline" className="rounded-xl border-white/10">
+            <Button size="sm" variant="outline" className="rounded-lg border-white/10">
               Sign in
             </Button>
           </Link>
@@ -75,9 +75,9 @@ export function TopNav() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full mt-2 w-48 bg-background border border-white/10 rounded-xl p-2 z-50"
+              className="absolute right-0 top-full mt-2 w-48 glass rounded-lg p-2 z-50"
             >
-              <div className="px-3 py-2 border-b border-white/10 mb-1">
+              <div className="px-3 py-2 border-b border-white/[0.06] mb-1">
                 <p className="text-sm font-medium truncate">{user.name}</p>
                 <p className="text-xs text-muted truncate">{user.email}</p>
               </div>
@@ -114,7 +114,7 @@ export function TopNav() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="md:hidden absolute top-full left-0 right-0 bg-background border-t border-white/10 px-4 py-4 flex flex-col gap-1"
+            className="md:hidden absolute top-full left-0 right-0 bg-background border-t border-white/[0.06] px-4 py-4 flex flex-col gap-1"
           >
             {navItems.map((item) => {
               const isActive = pathname === item.href;
@@ -123,11 +123,11 @@ export function TopNav() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm ${
-                    isActive ? "bg-primary/15 text-text font-medium" : "text-muted"
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm border-l ${
+                    isActive ? "border-primary text-text font-medium" : "border-transparent text-muted"
                   }`}
                 >
-                  <item.icon className="size-4.5" />
+                  <item.icon className={`size-4.5 ${isActive ? "text-primary" : ""}`} />
                   {item.label}
                 </Link>
               );

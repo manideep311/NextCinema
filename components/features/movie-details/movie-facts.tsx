@@ -2,7 +2,7 @@ import Image from "next/image";
 import { DollarSign, Building2, Languages, Circle } from "lucide-react";
 import type { TmdbProductionCompany, TmdbSpokenLanguage } from "@/types/tmdb";
 
-interface MovieFactsProps {
+export interface MovieFactsProps {
   budget: number;
   revenue: number;
   status: string;
@@ -11,6 +11,21 @@ interface MovieFactsProps {
 }
 
 const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
+
+/** Used by the page to decide whether to render the "Movie Facts" heading
+ *  at all — status is nearly always present, but this guards the rare case
+ *  where TMDB returns nothing usable for any field. */
+export function hasMovieFacts({
+  budget,
+  revenue,
+  status,
+  productionCompanies,
+  spokenLanguages,
+}: MovieFactsProps): boolean {
+  return Boolean(
+    budget || revenue || status || productionCompanies.length > 0 || spokenLanguages.length > 0
+  );
+}
 
 function formatCurrency(value: number): string {
   if (!value) return "Undisclosed";
@@ -22,32 +37,32 @@ function formatCurrency(value: number): string {
 export function MovieFacts({ budget, revenue, status, productionCompanies, spokenLanguages }: MovieFactsProps) {
   return (
     <div className="grid sm:grid-cols-2 gap-4">
-      <div className="glass rounded-xl p-4 flex items-center gap-3">
-        <DollarSign className="size-5 text-accent shrink-0" />
+      <div className="glass rounded-lg p-4 flex items-center gap-3">
+        <DollarSign className="size-5 text-primary shrink-0" />
         <div>
           <p className="text-xs text-muted">Budget</p>
           <p className="text-sm font-medium">{formatCurrency(budget)}</p>
         </div>
       </div>
 
-      <div className="glass rounded-xl p-4 flex items-center gap-3">
-        <DollarSign className="size-5 text-accent shrink-0" />
+      <div className="glass rounded-lg p-4 flex items-center gap-3">
+        <DollarSign className="size-5 text-primary shrink-0" />
         <div>
           <p className="text-xs text-muted">Revenue</p>
           <p className="text-sm font-medium">{formatCurrency(revenue)}</p>
         </div>
       </div>
 
-      <div className="glass rounded-xl p-4 flex items-center gap-3">
-        <Circle className="size-5 text-accent shrink-0 fill-current" />
+      <div className="glass rounded-lg p-4 flex items-center gap-3">
+        <Circle className="size-5 text-primary shrink-0 fill-current" />
         <div>
           <p className="text-xs text-muted">Status</p>
           <p className="text-sm font-medium">{status}</p>
         </div>
       </div>
 
-      <div className="glass rounded-xl p-4 flex items-center gap-3">
-        <Languages className="size-5 text-accent shrink-0" />
+      <div className="glass rounded-lg p-4 flex items-center gap-3">
+        <Languages className="size-5 text-primary shrink-0" />
         <div>
           <p className="text-xs text-muted">Languages</p>
           <p className="text-sm font-medium">
@@ -59,7 +74,7 @@ export function MovieFacts({ budget, revenue, status, productionCompanies, spoke
       </div>
 
       {productionCompanies.length > 0 && (
-        <div className="glass rounded-xl p-4 sm:col-span-2">
+        <div className="glass rounded-lg p-4 sm:col-span-2">
           <div className="flex items-center gap-2 mb-3 text-xs text-muted">
             <Building2 className="size-4" /> Production
           </div>

@@ -1,10 +1,10 @@
-import { Sparkles } from "lucide-react";
 import type { MovieProfile } from "@/types/movie";
 
 /**
- * A short synthesized "AI note" built from the movie's own profile data
+ * A short synthesized note built from the movie's own profile data
  * (genres, director, top cast) — cheap, deterministic, and always
- * available, unlike a live LLM call on every page view.
+ * available, unlike a live LLM call on every page view. Styled as plain
+ * editorial context rather than an "AI insight" callout.
  */
 export function AiSummary({ movie }: { movie: MovieProfile }) {
   const genrePhrase = movie.genreNames.slice(0, 2).join(" / ") || "genre-defying";
@@ -18,14 +18,9 @@ export function AiSummary({ movie }: { movie: MovieProfile }) {
         : "";
 
   return (
-    <div className="glass rounded-xl p-5 flex gap-3">
-      <div className="size-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-        <Sparkles className="size-4 text-accent" />
-      </div>
-      <p className="text-sm text-muted leading-relaxed">
-        A {genrePhrase} film{directorPhrase}.{castPhrase}
-        {ratingPhrase}
-      </p>
-    </div>
+    <p className="text-muted leading-relaxed max-w-3xl border-l-2 border-primary/40 pl-4">
+      A {genrePhrase} film{directorPhrase}.{castPhrase}
+      {ratingPhrase}
+    </p>
   );
 }

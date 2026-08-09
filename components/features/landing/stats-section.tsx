@@ -33,7 +33,7 @@ function AnimatedStat({ value, suffix, label }: { value: number; suffix: string;
 
   return (
     <div ref={ref} className="text-center">
-      <p className="font-heading text-3xl md:text-5xl font-bold gradient-text mb-1">
+      <p className="font-serif text-3xl md:text-5xl gradient-text mb-1">
         {value < 1000 ? Math.round(display) : formatValue(display)}
         {suffix}
       </p>
@@ -50,7 +50,7 @@ export function StatsSection() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="glass rounded-2xl px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8"
+        className="glass rounded-lg px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8"
       >
         {STATS.map((stat) => (
           <AnimatedStat key={stat.label} {...stat} />

@@ -34,20 +34,20 @@ export default async function ProfilePage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="font-heading text-2xl font-bold mb-8">Profile</h1>
+      <h1 className="font-serif text-2xl mb-8">Profile</h1>
 
-      <div className="glass rounded-2xl p-6 flex items-center gap-5 mb-8">
+      <div className="glass rounded-xl p-6 flex items-center gap-5 mb-8">
         <Avatar size="lg" className="size-16">
-          <AvatarFallback className="bg-primary/20 text-primary text-lg">
+          <AvatarFallback className="bg-primary/15 text-primary text-lg">
             {initials(session.name)}
           </AvatarFallback>
         </Avatar>
         <div>
-          <h2 className="font-heading text-xl font-semibold">{session.name}</h2>
+          <h2 className="font-serif text-xl">{session.name}</h2>
           <p className="text-muted text-sm flex items-center gap-1.5">
             <Mail className="size-3.5" /> {session.email}
           </p>
-          <Badge variant="secondary" className="mt-2 capitalize glass border-white/10">
+          <Badge variant="secondary" className="mt-2 capitalize border border-white/10">
             <Shield className="size-3" /> {session.role}
           </Badge>
         </div>
@@ -55,9 +55,9 @@ export default async function ProfilePage() {
 
       <div className="grid grid-cols-3 gap-4">
         {STAT_CARDS.map((stat) => (
-          <div key={stat.key} className="glass rounded-xl p-5 text-center">
-            <stat.icon className="size-5 text-accent mx-auto mb-2" />
-            <p className="font-heading text-2xl font-bold">{counts[stat.key]}</p>
+          <div key={stat.key} className="glass rounded-lg p-5 text-center">
+            <stat.icon className="size-5 text-primary mx-auto mb-2" strokeWidth={1.5} />
+            <p className="font-serif text-2xl">{counts[stat.key]}</p>
             <p className="text-muted text-xs">{stat.label}</p>
           </div>
         ))}

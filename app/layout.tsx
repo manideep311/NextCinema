@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Sora } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { getSession } from "@/lib/auth/session";
 import { AuthProvider } from "@/components/providers/auth-provider";
@@ -11,9 +11,12 @@ const inter = Inter({
   display: "swap",
 });
 
-const sora = Sora({
+// Editorial serif for headlines/titles — replaces the previous geometric
+// sans heading font so the product reads as a cinema/editorial brand
+// rather than a SaaS dashboard.
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  variable: "--font-sora",
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -32,7 +35,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.variable} ${sora.variable} antialiased`}>
+      <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         <AuthProvider initialUser={initialUser}>
           {children}
           <AssistantWidget />

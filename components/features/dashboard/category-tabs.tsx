@@ -23,20 +23,34 @@ export function CategoryTabs() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (tabs[active]) {
-      setIsLoading(false);
-      return;
+      // Already cached — nothing to fetch, but the state flip still needs
+      // to happen from an async continuation rather than synchronously in
+      // the effect body (a previous tab could still be mid-fetch with
+      // `isLoading` genuinely `true` right now).
+      queueMicrotask(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    let cancelled = false;
-    setIsLoading(true);
+    // Deferred to a microtask for the same reason as the cached-tab branch
+    // above — keeps `setIsLoading(true)` out of the synchronous effect body.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setIsLoading(true);
 
-    fetchPage(active, 1)
-      .then((result) => {
-        if (cancelled) return;
-        setTabs((current) => ({ ...current, [active]: result }));
-      })
-      .finally(() => !cancelled && setIsLoading(false));
+      fetchPage(active, 1)
+        .then((result) => {
+          if (cancelled) return;
+          setTabs((current) => ({ ...current, [active]: result }));
+        })
+        .finally(() => !cancelled && setIsLoading(false));
+    });
 
     return () => {
       cancelled = true;
@@ -64,7 +78,7 @@ export function CategoryTabs() {
 
   return (
     <div>
-      <div role="tablist" aria-label="Browse by industry" className="flex flex-wrap gap-2 mb-8">
+      <div role="tablist" aria-label="Browse by industry" className="flex flex-wrap gap-1 mb-8 border-b border-white/[0.06]">
         {INDUSTRIES.map((industry) => {
           const isActive = active === industry.id;
           return (
@@ -73,16 +87,16 @@ export function CategoryTabs() {
               role="tab"
               aria-selected={isActive}
               onClick={() => setActive(industry.id)}
-              className="relative px-4 py-2 rounded-xl text-sm transition-colors"
+              className="relative px-4 py-2.5 text-sm transition-colors"
             >
               {isActive && (
                 <motion.div
                   layoutId="category-tab-bg"
-                  className="absolute inset-0 bg-primary/15 border border-primary/40 rounded-xl"
+                  className="absolute inset-x-0 bottom-0 h-px bg-primary"
                   transition={{ duration: 0.25 }}
                 />
               )}
-              <span className={`relative z-10 font-medium ${isActive ? "text-text" : "text-muted"}`}>
+              <span className={`relative z-10 font-medium ${isActive ? "text-text" : "text-muted hover:text-text transition-colors"}`}>
                 {industry.label}
               </span>
             </button>
@@ -100,14 +114,17 @@ export function CategoryTabs() {
         />
       ) : (
         <div role="tabpanel">
-          <MovieGrid movies={state.movies} />
+          {/* Keyed by tab so switching categories replays the grid's reveal
+             stagger — load-more within the same tab doesn't remount, so
+             already-visible cards don't replay. */}
+          <MovieGrid key={active} movies={state.movies} />
 
           {state.hasMore && (
             <div className="flex justify-center mt-6">
               <button
                 onClick={loadMore}
                 disabled={isLoadingMore}
-                className="flex items-center gap-2 text-sm px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-muted hover:text-text hover:border-white/20 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-muted hover:text-text hover:border-white/20 transition-colors disabled:opacity-50"
               >
                 {isLoadingMore && <Loader2 className="size-3.5 animate-spin" />}
                 {isLoadingMore ? "Loading…" : "Load more"}

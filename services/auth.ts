@@ -49,9 +49,21 @@ export async function createUser(params: {
   return toPublicUser(doc);
 }
 
+// Fixed, well-formed placeholder in the same `${salt}:${keyHex}` shape real
+// stored hashes use — never a real password's hash, just enough for
+// verifyPassword to run its actual scrypt computation. Used only to make
+// the "no such account" path below pay the same cost as a real lookup.
+const DUMMY_PASSWORD_HASH = `${"a".repeat(32)}:${"b".repeat(128)}`;
+
 export async function authenticateUser(email: string, password: string): Promise<PublicUser> {
   const doc = await findUserByEmail(email);
   if (!doc) {
+    // Unknown email would otherwise return immediately, while a wrong
+    // password below pays scrypt's cost — a measurable timing difference
+    // an attacker could use to enumerate valid emails. Running the same
+    // hash-and-compare here (result always discarded) closes that gap
+    // without changing what's thrown or any other behavior.
+    await verifyPassword(password, DUMMY_PASSWORD_HASH);
     throw new Error("Invalid email or password.");
   }
 

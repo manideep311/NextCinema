@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { Sparkles, ChevronDown } from "lucide-react";
+import { motion, useReducedMotion } from "framer-motion";
+import Link from "next/link";
+import Image from "next/image";
 import { FloatingMovieCard } from "@/components/features/landing/floating-movie-card";
 import { AiSearchDemo } from "@/components/features/landing/ai-search-demo";
 import type { MovieProfile } from "@/types/movie";
@@ -14,98 +15,128 @@ interface HeroProps {
   featuredMovies: Pick<MovieProfile, "id" | "title" | "posterPath">[];
 }
 
-// Fixed positions/timings so the layout is deterministic and doesn't
-// jump around on re-render — purely presentational, not derived from data.
-const CARD_LAYOUTS = [
-  { top: "8%", left: "6%", delay: 0.2, floatDuration: 4, rotate: -6 },
-  { top: "15%", left: "82%", delay: 0.4, floatDuration: 5, rotate: 5 },
-  { top: "60%", left: "4%", delay: 0.6, floatDuration: 4.5, rotate: 4 },
-  { top: "68%", left: "85%", delay: 0.3, floatDuration: 5.5, rotate: -4 },
-  { top: "40%", left: "90%", delay: 0.5, floatDuration: 4, rotate: 3 },
+const MOOD_PROMPTS = ["Slow and emotional", "Mind-bending thrillers", "Feel-good movies", "Dark and intense"];
+
+// Fixed asymmetric collage layout — deliberately uneven sizes/rotations so
+// the posters read as an overlapping stack of physical film posters rather
+// than a tidy grid. Purely presentational, not derived from data.
+const COLLAGE_LAYOUT = [
+  { className: "w-40 lg:w-44 top-0 left-0 z-20", rotate: -5, delay: 0.1 },
+  { className: "w-32 lg:w-36 top-4 right-4 z-30", rotate: 4, delay: 0.2 },
+  { className: "w-36 lg:w-40 bottom-20 left-20 lg:left-24 z-10", rotate: 6, delay: 0.3 },
+  { className: "w-28 lg:w-32 bottom-0 right-16 z-20", rotate: -3, delay: 0.4 },
+  { className: "w-24 lg:w-28 top-1/3 left-1/2 -translate-x-1/2 z-0", rotate: 2, delay: 0.5 },
 ];
 
 export function Hero({ featuredMovies }: HeroProps) {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [spotlightPos, setSpotlightPos] = useState({ x: 50, y: 30 });
+  const collageRef = useRef<HTMLDivElement>(null);
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
+  const reducedMotion = useReducedMotion();
 
-  function handleMouseMove(e: React.MouseEvent<HTMLElement>) {
-    const rect = sectionRef.current?.getBoundingClientRect();
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    // Kept intentionally subtle — a hint of depth, not a visible drift.
+    // Disabled entirely under prefers-reduced-motion.
+    if (reducedMotion) return;
+    const rect = collageRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setSpotlightPos({
-      x: ((e.clientX - rect.left) / rect.width) * 100,
-      y: ((e.clientY - rect.top) / rect.height) * 100,
-    });
+    const relX = (e.clientX - rect.left) / rect.width - 0.5;
+    const relY = (e.clientY - rect.top) / rect.height - 0.5;
+    setParallax({ x: relX * -5, y: relY * -5 });
   }
 
-  const spotlight = `radial-gradient(600px circle at ${spotlightPos.x}% ${spotlightPos.y}%, rgba(124,58,237,0.14), transparent 70%)`;
-
   return (
-    <section
-      ref={sectionRef}
-      onMouseMove={handleMouseMove}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden px-6 pt-24 pb-12"
-    >
-      {/* Aurora base layer */}
+    <section className="relative overflow-hidden px-6 pt-32 pb-20 lg:pt-40 lg:pb-28">
+      {/* Faint warm vignette — the only "glow" in the hero, and it's tied to the single accent color, not purple/cyan */}
       <div
         aria-hidden="true"
-        className="absolute inset-0 -z-20"
+        className="absolute inset-0 -z-10"
         style={{
-          background:
-            "radial-gradient(circle at 50% 20%, rgba(124,58,237,0.28), transparent 55%), radial-gradient(circle at 85% 75%, rgba(6,182,212,0.18), transparent 50%), radial-gradient(circle at 10% 80%, rgba(59,130,246,0.15), transparent 45%)",
+          background: "radial-gradient(ellipse 60% 50% at 15% 10%, rgba(198,154,77,0.06), transparent 60%)",
         }}
       />
-      {/* Mouse-follow spotlight */}
-      <motion.div aria-hidden="true" className="absolute inset-0 -z-10" style={{ background: spotlight }} />
 
-      {featuredMovies.slice(0, CARD_LAYOUTS.length).map((movie, i) => (
-        <FloatingMovieCard
-          key={movie.id}
-          title={movie.title}
-          posterPath={movie.posterPath}
-          {...CARD_LAYOUTS[i]}
-        />
-      ))}
+      <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <p className="text-xs uppercase tracking-[0.2em] text-primary mb-5">
+            Find something worth watching
+          </p>
 
-      <motion.div
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.1 }}
-        className="relative z-10 max-w-2xl text-center"
-      >
-        <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-sm text-muted mb-6">
-          <Sparkles className="size-4 text-accent" />
-          AI-powered movie matching
-        </div>
+          <h1 className="font-serif text-5xl md:text-6xl xl:text-7xl leading-[1.05] mb-6 text-balance">
+            Find your
+            <br />
+            next movie.
+          </h1>
 
-        <h1 className="font-heading text-4xl md:text-6xl font-bold leading-tight mb-6">
-          Discover your next
-          <br />
-          <span className="gradient-text">favorite movie</span>
-        </h1>
+          <p className="text-muted text-lg leading-relaxed mb-10 max-w-md">
+            Tell us what you&apos;re in the mood for. We&apos;ll find the movies that fit.
+          </p>
 
-        <p className="text-muted text-lg mb-8 max-w-lg mx-auto">
-          Every great story begins with a good recommendation. NextCinema
-          learns what you love — genres, cast, mood — and explains exactly
-          why each pick fits.
-        </p>
-
-        <div className="mb-8">
           <AiSearchDemo />
+
+          <div className="flex flex-wrap items-center gap-2 mt-5">
+            <span className="text-xs text-muted mr-1">Try something like</span>
+            {MOOD_PROMPTS.map((prompt) => (
+              <Link
+                key={prompt}
+                href="/dashboard/search"
+                className="text-xs px-3 py-1.5 rounded-full border border-white/10 text-muted hover:text-text hover:border-white/20 transition-colors"
+              >
+                {prompt}
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Desktop asymmetric poster collage */}
+        <div
+          ref={collageRef}
+          onMouseMove={handleMouseMove}
+          className="relative hidden lg:block h-[520px]"
+        >
+          <motion.div
+            animate={reducedMotion ? undefined : { x: parallax.x, y: parallax.y }}
+            transition={{ type: "spring", stiffness: 60, damping: 20 }}
+            className="absolute inset-0"
+          >
+            {featuredMovies.slice(0, COLLAGE_LAYOUT.length).map((movie, i) => (
+              <FloatingMovieCard
+                key={movie.id}
+                title={movie.title}
+                posterPath={movie.posterPath}
+                {...COLLAGE_LAYOUT[i]}
+              />
+            ))}
+          </motion.div>
         </div>
 
-        <a href="#ai-preview" className="inline-block text-xs text-muted hover:text-text transition-colors">
-          See how it works
-        </a>
-      </motion.div>
-
-      <motion.div
-        animate={{ y: [0, 8, 0] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 text-muted"
-        aria-hidden="true"
-      >
-        <ChevronDown className="size-5" />
-      </motion.div>
+        {/* Mobile/tablet — simplified overlapping strip instead of the full collage */}
+        <div className="flex lg:hidden -space-x-10 pl-10 pt-4">
+          {featuredMovies.slice(0, 4).map((movie, i) => (
+            <motion.div
+              key={movie.id}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: i * 0.08 }}
+              style={{ rotate: `${i % 2 === 0 ? -4 : 4}deg`, zIndex: i }}
+              className="relative w-24 aspect-[2/3] shrink-0 rounded-lg overflow-hidden ring-1 ring-white/[0.07] shadow-xl bg-surface"
+            >
+              {movie.posterPath && (
+                <Image
+                  src={`${process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
+                  alt={movie.title}
+                  fill
+                  sizes="96px"
+                  className="object-cover"
+                />
+              )}
+            </motion.div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

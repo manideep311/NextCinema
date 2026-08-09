@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Sparkles, Loader2, X } from "lucide-react";
+import { Search, Loader2, X } from "lucide-react";
 import { useCommandPalette } from "@/components/providers/command-palette-provider";
 import { CompactMovieList } from "@/components/features/movies/compact-movie-list";
 import { useRecentSearches } from "@/hooks/use-recent-searches";
@@ -31,38 +31,65 @@ export function CommandPalette() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    // Deferred to a microtask so the reset happens from an async
+    // continuation rather than synchronously in the effect body — same
+    // end result (query/results cleared the instant the palette opens).
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
       setQuery("");
       setResults(null);
-      const id = requestAnimationFrame(() => inputRef.current?.focus());
-      return () => cancelAnimationFrame(id);
-    }
+    });
+
+    const id = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
   }, [isOpen]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
+    // Guards against a slower earlier request resolving after a newer one
+    // and clobbering its results (see app/dashboard/search/page.tsx for
+    // the same fix and full rationale).
+    let cancelled = false;
+
     if (query.trim().length < 2) {
-      setResults(null);
-      setIsLoading(false);
-      return;
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setResults(null);
+        setIsLoading(false);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    setIsLoading(true);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        setResults(data.results ?? []);
-        setMode(data.mode === "mood" ? "mood" : "title");
-        addSearch(query);
-      } finally {
-        setIsLoading(false);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, DEBOUNCE_MS);
+    // Deferred to a microtask for the same reason as the short-query branch
+    // above — keeps `setIsLoading(true)` out of the synchronous effect body.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setIsLoading(true);
+      debounceRef.current = setTimeout(async () => {
+        try {
+          const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          if (cancelled) return;
+          setResults(data.results ?? []);
+          setMode(data.mode === "mood" ? "mood" : "title");
+          addSearch(query);
+        } finally {
+          if (!cancelled) setIsLoading(false);
+        }
+      }, DEBOUNCE_MS);
+    });
 
     return () => {
+      cancelled = true;
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -86,24 +113,18 @@ export function CommandPalette() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative w-full max-w-xl rounded-2xl overflow-hidden"
-            style={{
-              background: "rgba(15, 23, 42, 0.92)",
-              backdropFilter: "blur(20px)",
-              border: "1px solid rgba(6, 182, 212, 0.35)",
-              boxShadow: "0 0 60px rgba(6, 182, 212, 0.15), 0 24px 80px rgba(0,0,0,0.6)",
-            }}
+            className="relative w-full max-w-xl rounded-xl overflow-hidden glass shadow-2xl"
           >
-            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/10">
+            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06]">
               <Search className="size-4 text-muted shrink-0" />
               <input
                 ref={inputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search a title, mood, or genre…"
+                placeholder="Search movies, actors, genres…"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
               />
-              {isLoading && <Loader2 className="size-4 text-accent animate-spin shrink-0" />}
+              {isLoading && <Loader2 className="size-4 text-primary animate-spin shrink-0" />}
               <button onClick={close} aria-label="Close search" className="text-muted hover:text-text shrink-0">
                 <X className="size-4" />
               </button>
@@ -153,9 +174,7 @@ export function CommandPalette() {
               {results !== null && results.length > 0 && (
                 <div>
                   {mode === "mood" && (
-                    <p className="flex items-center gap-1.5 text-xs text-accent px-1 mb-2">
-                      <Sparkles className="size-3.5" /> Matched by mood/genre, ranked by rating
-                    </p>
+                    <p className="text-xs text-primary px-1 mb-2">Matched by mood/genre, ranked by rating</p>
                   )}
                   <CompactMovieList movies={results.slice(0, 8)} onNavigate={close} />
                 </div>

@@ -8,10 +8,10 @@ const FOOTER_LINKS = {
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/10 mt-12">
+    <footer className="border-t border-white/[0.06] mt-12">
       <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-2 md:grid-cols-4 gap-8">
         <div className="col-span-2 md:col-span-1">
-          <div className="flex items-center gap-2 font-heading font-bold mb-3">
+          <div className="flex items-center gap-2 font-serif font-semibold mb-3">
             <Logo />
           </div>
           <p className="text-muted text-sm">
@@ -35,7 +35,7 @@ export function Footer() {
         ))}
       </div>
 
-      <div className="border-t border-white/10 py-6 text-center text-muted text-xs">
+      <div className="border-t border-white/[0.06] py-6 text-center text-muted text-xs">
         © {new Date().getFullYear()} NextCinema. Built as a portfolio project.
       </div>
     </footer>

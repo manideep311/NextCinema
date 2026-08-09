@@ -4,8 +4,8 @@
 // recommendation system can already back up.
 
 export const GREETING_LINES = [
-  "Scanning your cinematic preferences…",
-  "Systems online. Ready when you are.",
+  "Hey, it's Bujji. What are we watching tonight?",
+  "Ready when you are.",
   "500,000+ movie relationships, one good pick.",
 ];
 

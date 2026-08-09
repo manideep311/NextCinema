@@ -1,12 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Sparkles, Filter, MessageSquareText, TrendingUp } from "lucide-react";
+import { Compass, Filter, MessageSquareText, TrendingUp } from "lucide-react";
 
 const FEATURES = [
   {
-    icon: Sparkles,
-    title: "AI-Powered Matching",
+    icon: Compass,
+    title: "Real Taste Matching",
     description: "Get recommendations based on genres, cast, director, and themes — not just what's popular.",
   },
   {
@@ -46,11 +46,11 @@ export function FeatureCards() {
         transition={{ duration: 0.5 }}
         className="text-center mb-16"
       >
-        <h2 className="font-heading text-3xl md:text-4xl font-bold mb-4">
+        <h2 className="font-serif text-3xl md:text-4xl mb-4">
           Built for actual <span className="gradient-text">movie lovers</span>
         </h2>
         <p className="text-muted max-w-xl mx-auto">
-          No generic "top 10" lists. Just recommendations that make sense for you.
+          No generic &quot;top 10&quot; lists. Just recommendations that make sense for you.
         </p>
       </motion.div>
 
@@ -66,10 +66,10 @@ export function FeatureCards() {
             key={feature.title}
             variants={cardVariants}
             whileHover={{ y: -4 }}
-            className="glass rounded-xl p-6 transition-shadow hover:shadow-lg hover:shadow-primary/10"
+            className="glass rounded-lg p-6 transition-shadow hover:shadow-lg hover:shadow-primary/5"
           >
-            <feature.icon className="size-8 text-accent mb-4" />
-            <h3 className="font-heading font-semibold text-lg mb-2">{feature.title}</h3>
+            <feature.icon className="size-6 text-primary mb-4" strokeWidth={1.5} />
+            <h3 className="font-serif text-lg mb-2">{feature.title}</h3>
             <p className="text-muted text-sm">{feature.description}</p>
           </motion.div>
         ))}

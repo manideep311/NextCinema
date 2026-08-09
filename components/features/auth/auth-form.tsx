@@ -12,7 +12,7 @@ interface AuthFormProps {
 }
 
 const inputClass =
-  "w-full glass rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none placeholder:text-muted focus:ring-2 focus:ring-primary/50 transition-shadow";
+  "w-full glass rounded-lg pl-10 pr-4 py-2.5 text-sm outline-none placeholder:text-muted focus:ring-1 focus:ring-primary/60 transition-shadow";
 
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
@@ -105,7 +105,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         type="submit"
         disabled={isSubmitting}
         size="lg"
-        className="w-full bg-primary hover:bg-primary/90 rounded-xl"
+        className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg"
       >
         {isSubmitting ? (
           <Loader2 className="size-4 animate-spin" />

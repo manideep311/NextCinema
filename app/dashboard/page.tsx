@@ -1,65 +1,53 @@
-import { getTrendingMovies, getPopularMovies, getTopRatedMovies, getUpcomingMovies } from "@/services/tmdb";
 import { getSession } from "@/lib/auth/session";
-import { DashboardSection } from "@/components/features/dashboard/dashboard-section";
-import { MovieGrid } from "@/components/features/movies/movie-grid";
+import { INDUSTRIES, isPrimaryIndustryId, DEFAULT_PRIMARY_INDUSTRY } from "@/lib/industries";
+import { getIndustryCollections } from "@/services/discovery";
+import { OverviewHero } from "@/components/features/dashboard/overview-hero";
+import { IndustryCollections } from "@/components/features/dashboard/industry-collections";
 import { ForYouSection } from "@/components/features/dashboard/for-you-section";
-import { ContinueWatchingSection } from "@/components/features/dashboard/continue-watching-section";
-import { FavoritesSection } from "@/components/features/dashboard/favorites-section";
-import { WatchlistSection } from "@/components/features/dashboard/watchlist-section";
+import { ContinueYourJourneySection } from "@/components/features/dashboard/continue-your-journey-section";
 
-function toCardMovies(results: Awaited<ReturnType<typeof getTrendingMovies>>["results"]) {
-  return results.map((movie) => ({
-    id: movie.id,
-    title: movie.title,
-    posterPath: movie.poster_path,
-    voteAverage: movie.vote_average,
-    releaseYear: movie.release_date ? movie.release_date.slice(0, 4) : null,
-  }));
+interface DashboardOverviewProps {
+  searchParams: Promise<{ industry?: string }>;
 }
 
-export default async function DashboardOverview() {
-  const [session, trending, popular, topRated, upcoming] = await Promise.all([
+function timeOfDayGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/**
+ * The Overview is NextCinema's primary discovery surface: pick an
+ * industry, get a curated set of collections for it. The selected
+ * industry is resolved here (from the URL, defaulting to Hollywood — see
+ * lib/industries.ts) so a direct link or a refresh always renders the
+ * right industry's movies on the very first paint, with zero client
+ * round-trip. IndustryCollections (client) takes over from there for any
+ * in-session switching.
+ */
+export default async function DashboardOverview({ searchParams }: DashboardOverviewProps) {
+  const { industry: requestedIndustry } = await searchParams;
+  const initialIndustry = isPrimaryIndustryId(requestedIndustry) ? requestedIndustry : DEFAULT_PRIMARY_INDUSTRY;
+  const languageCode = INDUSTRIES.find((industry) => industry.id === initialIndustry)!.language!;
+
+  const [session, initialCollections] = await Promise.all([
     getSession(),
-    getTrendingMovies(),
-    getPopularMovies(),
-    getTopRatedMovies(),
-    getUpcomingMovies(),
+    getIndustryCollections(languageCode),
   ]);
+
+  const greeting = session ? `${timeOfDayGreeting()}, ${session.name.split(" ")[0]}.` : `${timeOfDayGreeting()}.`;
 
   return (
     <div>
-      <h1 className="font-heading text-2xl font-bold mb-1">
-        {session ? `Welcome back, ${session.name.split(" ")[0]}` : "Welcome back"}
-      </h1>
-      <p className="text-muted mb-6">Here&apos;s what&apos;s happening in movies today.</p>
+      <OverviewHero greeting={greeting} />
+
+      <IndustryCollections initialIndustry={initialIndustry} initialCollections={initialCollections} />
 
       {session && (
         <>
           <ForYouSection />
-          <ContinueWatchingSection limit={10} />
-        </>
-      )}
-
-      <DashboardSection title="Trending This Week">
-        <MovieGrid movies={toCardMovies(trending.results.slice(0, 10))} />
-      </DashboardSection>
-
-      <DashboardSection title="Popular Picks">
-        <MovieGrid movies={toCardMovies(popular.results.slice(0, 10))} />
-      </DashboardSection>
-
-      <DashboardSection title="Highly Rated">
-        <MovieGrid movies={toCardMovies(topRated.results.slice(0, 10))} />
-      </DashboardSection>
-
-      <DashboardSection title="Upcoming">
-        <MovieGrid movies={toCardMovies(upcoming.results.slice(0, 10))} />
-      </DashboardSection>
-
-      {session && (
-        <>
-          <FavoritesSection limit={10} />
-          <WatchlistSection limit={10} />
+          <ContinueYourJourneySection />
         </>
       )}
     </div>

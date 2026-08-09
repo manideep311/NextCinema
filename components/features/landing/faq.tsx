@@ -24,7 +24,7 @@ const FAQS = [
     answer: "Yes — browsing, search, and recommendations are all free, no credit card required.",
   },
   {
-    question: "What can the AI assistant do?",
+    question: "What can the assistant do?",
     answer:
       "It recommends movies, explains why a pick fits your taste, and surfaces trending titles — powered by the same recommendation engine as the rest of the site, available once you sign in.",
   },
@@ -32,7 +32,7 @@ const FAQS = [
 
 function FaqItem({ question, answer, isOpen, onToggle }: { question: string; answer: string; isOpen: boolean; onToggle: () => void }) {
   return (
-    <div className="glass rounded-xl overflow-hidden">
+    <div className="glass rounded-lg overflow-hidden">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between px-5 py-4 text-left"
@@ -70,7 +70,7 @@ export function Faq() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="font-heading text-3xl md:text-4xl font-bold text-center mb-12"
+        className="font-serif text-3xl md:text-4xl text-center mb-12"
       >
         Frequently asked <span className="gradient-text">questions</span>
       </motion.h2>

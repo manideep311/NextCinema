@@ -16,18 +16,28 @@ export function useRecentlyViewed() {
 
   useEffect(() => {
     if (authLoading) return;
-    let cancelled = false;
 
-    if (user) {
-      fetch("/api/history", { cache: "no-store" })
-        .then((res) => res.json())
-        .then((data) => !cancelled && setRecentlyViewed(data.history ?? []))
-        .catch(() => !cancelled && setRecentlyViewed([]))
-        .finally(() => !cancelled && setIsHydrated(true));
-    } else {
-      setRecentlyViewed([]);
-      setIsHydrated(true);
-    }
+    // Guest and signed-in both flow through the same promise pipeline —
+    // guests just resolve to an empty list instantly instead of hitting
+    // the network — so state is only ever set from an async continuation,
+    // never synchronously in the effect body.
+    let cancelled = false;
+    const request: Promise<StoredMovie[]> = user
+      ? fetch("/api/history", { cache: "no-store" })
+          .then((res) => res.json())
+          .then((data) => data.history ?? [])
+      : Promise.resolve([]);
+
+    request
+      .then((history) => {
+        if (!cancelled) setRecentlyViewed(history);
+      })
+      .catch(() => {
+        if (!cancelled) setRecentlyViewed([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsHydrated(true);
+      });
 
     return () => {
       cancelled = true;

@@ -1,18 +1,60 @@
 @import "tailwindcss";
 
+/*
+ * NextCinema visual tokens — premium cinema-discovery palette.
+ * Deliberately restrained: movie photography supplies most of the color,
+ * a single warm gold/amber accent is used sparingly, and every surface is
+ * a solid cinematic tone rather than a blurred "glass" panel.
+ *
+ * Two naming conventions coexist here on purpose: the shadcn/ui + Base UI
+ * primitives (button/badge/avatar) expect the standard token set
+ * (foreground, card, border, ring, ...), while the app's own components
+ * were already written against a shorthand set (--color-text, --color-muted,
+ * --color-surface, ...). Both point at the same values so neither breaks.
+ */
 @theme {
-  --color-background: #020617;
-  --color-surface: #111827;
-  --color-primary: #7C3AED;
-  --color-secondary: #3B82F6;
-  --color-accent: #06B6D4;
-  --color-text: #FFFFFF;
-  --color-muted: #94A3B8;
+  /* Core surfaces */
+  --color-background: #080909;
+  --color-surface: #151616;
+  --color-surface-2: #101111;
+  --color-card: #151616;
+  --color-card-foreground: #f3ede2;
+  --color-popover: #121313;
+  --color-popover-foreground: #f3ede2;
 
+  /* App shorthand tokens (used directly across components) */
+  --color-text: #f3ede2;
+  --color-muted: #948c80;
+  --color-foreground: #f3ede2;
+  --color-muted-foreground: #948c80;
+
+  /* Restrained warm gold/amber accent — the only saturated color in the system */
+  --color-primary: #c69a4d;
+  --color-primary-foreground: #14110a;
+  --color-accent: #d7b06c;
+  --color-accent-foreground: #14110a;
+
+  /* Secondary surface (neutral, not a second brand color) */
+  --color-secondary: #1b1c1c;
+  --color-secondary-foreground: #f3ede2;
+
+  --color-destructive: #d3564b;
+  --color-destructive-foreground: #f3ede2;
+
+  --color-border: #f3ede21a;
+  --color-input: #101111;
+  --color-ring: #c69a4d;
+
+  /* Typography — editorial serif for display/headings, clean sans for UI */
   --font-sans: var(--font-inter);
-  --font-heading: var(--font-sora);
+  --font-heading: var(--font-serif);
 
-  --radius-xl: 1rem;
+  /* Understated radii — 4–10px range instead of the default oversized scale */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1.125rem;
 }
 
 @layer base {
@@ -24,21 +66,54 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 }
 
 @layer utilities {
+  /*
+   * Kept the class name (30+ call sites reference it) but redefined what
+   * it means: a solid cinematic surface instead of a blurred glass panel.
+   * No backdrop-filter, no translucency — just the surface tone + a hairline
+   * warm border, consistent with the "remove glassmorphism" direction.
+   */
   .glass {
-    background-color: rgb(17 24 39 / 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgb(255 255 255 / 0.08);
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
   }
 
+  /*
+   * Also kept for the same reason — but a gradient-clipped headline reads
+   * as "AI SaaS," so this now just applies the single accent color instead
+   * of a purple→cyan gradient.
+   */
   .gradient-text {
-    background-image: linear-gradient(to right, var(--color-primary), var(--color-accent));
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
+    color: var(--color-primary);
+    background: none;
+    background-image: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+    -webkit-text-fill-color: unset;
+  }
+
+  .font-serif {
+    font-family: var(--font-heading);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Horizontal-scroll rails (industry selector, collection rails) — the
+     scroll affordance itself is the row of content; a visible scrollbar
+     underneath it just reads as browser chrome, not part of the design. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

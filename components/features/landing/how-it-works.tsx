@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Heart, Cpu, Sparkles } from "lucide-react";
+import { Heart, ListFilter, MessageSquareText } from "lucide-react";
 
 const STEPS = [
   {
@@ -10,12 +10,12 @@ const STEPS = [
     description: "Favorite a few movies or describe what you're in the mood for — no lengthy quiz required.",
   },
   {
-    icon: Cpu,
-    title: "The AI finds the pattern",
+    icon: ListFilter,
+    title: "We find the pattern",
     description: "We score genres, keywords, cast, and directors against your taste to find real similarity — not just popularity.",
   },
   {
-    icon: Sparkles,
+    icon: MessageSquareText,
     title: "Get matches, with reasons",
     description: "Every recommendation ships with a plain-English reason, so you always know why it's there.",
   },
@@ -31,7 +31,7 @@ export function HowItWorks() {
         transition={{ duration: 0.5 }}
         className="text-center mb-16"
       >
-        <h2 className="font-heading text-3xl md:text-4xl font-bold mb-4">
+        <h2 className="font-serif text-3xl md:text-4xl mb-4">
           How <span className="gradient-text">NextCinema</span> works
         </h2>
       </motion.div>
@@ -39,7 +39,7 @@ export function HowItWorks() {
       <div className="relative grid md:grid-cols-3 gap-8">
         <div
           aria-hidden="true"
-          className="hidden md:block absolute top-8 left-[16.5%] right-[16.5%] h-px bg-gradient-to-r from-primary/40 via-accent/40 to-primary/40"
+          className="hidden md:block absolute top-8 left-[16.5%] right-[16.5%] h-px bg-white/10"
         />
         {STEPS.map((step, i) => (
           <motion.div
@@ -50,10 +50,10 @@ export function HowItWorks() {
             transition={{ duration: 0.4, delay: i * 0.15 }}
             className="relative text-center"
           >
-            <div className="size-16 rounded-2xl glass flex items-center justify-center mx-auto mb-4 relative z-10">
-              <step.icon className="size-7 text-accent" />
+            <div className="size-14 rounded-full glass flex items-center justify-center mx-auto mb-4 relative z-10">
+              <step.icon className="size-5 text-primary" strokeWidth={1.5} />
             </div>
-            <h3 className="font-heading font-semibold mb-2">{step.title}</h3>
+            <h3 className="font-serif text-lg mb-2">{step.title}</h3>
             <p className="text-muted text-sm max-w-xs mx-auto">{step.description}</p>
           </motion.div>
         ))}

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, TrendingUp, Gift, Search, X, Loader2, Star, ArrowRight } from "lucide-react";
+import { Sparkles, TrendingUp, Gift, Search, X, Loader2, Star, ArrowRight, Puzzle } from "lucide-react";
 import { GREETING_LINES, THINKING_LINES, randomLine } from "@/lib/assistant-lines";
 import { CompactMovieList } from "@/components/features/movies/compact-movie-list";
 import type { MovieProfile, RecommendationReason } from "@/types/movie";
@@ -31,11 +31,13 @@ const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 interface AssistantPanelProps {
   onClose: () => void;
   onThinkingChange: (isThinking: boolean) => void;
+  /** Opens the Poster Puzzle mini-game (rendered by the parent widget, not this panel, so it isn't constrained to the panel's small footprint). */
+  onOpenPuzzle: () => void;
 }
 
 const GREETING = randomLine(GREETING_LINES);
 
-export function AssistantPanel({ onClose, onThinkingChange }: AssistantPanelProps) {
+export function AssistantPanel({ onClose, onThinkingChange, onOpenPuzzle }: AssistantPanelProps) {
   const [screen, setScreen] = useState<Screen>({ kind: "idle" });
 
   async function runAction(action: ActionKind, query?: string) {
@@ -78,39 +80,19 @@ export function AssistantPanel({ onClose, onThinkingChange }: AssistantPanelProp
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16, scale: 0.96 }}
+      initial={{ opacity: 0, y: 12, scale: 0.92 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 16, scale: 0.96 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      className="absolute bottom-full right-0 mb-4 w-[22rem] max-w-[90vw] rounded-2xl overflow-hidden pointer-events-auto"
-      style={{
-        background: "rgba(15, 23, 42, 0.85)",
-        backdropFilter: "blur(16px)",
-        border: "1px solid rgba(6, 182, 212, 0.35)",
-        boxShadow: "0 0 40px rgba(6, 182, 212, 0.15), 0 20px 60px rgba(0,0,0,0.5)",
-      }}
+      exit={{ opacity: 0, y: 12, scale: 0.92 }}
+      transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+      style={{ transformOrigin: "bottom right" }}
+      className="absolute bottom-full right-0 mb-4 w-[22rem] max-w-[90vw] rounded-xl overflow-hidden glass shadow-2xl pointer-events-auto"
     >
-      {/* Animated holographic grid backdrop */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 opacity-[0.07] pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(6,182,212,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,0.8) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-        }}
-      />
-
-      <div className="relative flex items-center justify-between px-4 py-3 border-b border-accent/20">
-        <div className="flex items-center gap-2">
-          <motion.span
-            className="size-2 rounded-full bg-accent"
-            animate={{ opacity: [1, 0.4, 1] }}
-            transition={{ duration: 1.6, repeat: Infinity }}
-          />
-          <span className="text-sm font-heading font-semibold">NextCinema Assistant</span>
+      <div className="relative flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-baseline gap-2">
+          <span className="text-sm font-serif tracking-wide">BUJJI</span>
+          <span className="text-[10px] uppercase tracking-widest text-primary/80">Your Movie Companion</span>
         </div>
-        <button onClick={onClose} aria-label="Close assistant" className="text-muted hover:text-text">
+        <button onClick={onClose} aria-label="Close Bujji" className="text-muted hover:text-text">
           <X className="size-4" />
         </button>
       </div>
@@ -125,6 +107,24 @@ export function AssistantPanel({ onClose, onThinkingChange }: AssistantPanelProp
                 <QuickAction icon={TrendingUp} label="What's trending" onClick={() => runAction("trending")} />
                 <QuickAction icon={Gift} label="Surprise me" onClick={() => runAction("surprise")} />
               </div>
+
+              <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3.5">
+                <div className="flex items-start gap-3">
+                  <div className="size-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                    <Puzzle className="size-4 text-primary" strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">Movie break?</p>
+                    <p className="text-xs text-muted mb-2.5">Test your movie knowledge.</p>
+                    <button
+                      onClick={onOpenPuzzle}
+                      className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+                    >
+                      Poster Puzzle
+                    </button>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -136,7 +136,7 @@ export function AssistantPanel({ onClose, onThinkingChange }: AssistantPanelProp
               exit={{ opacity: 0 }}
               className="flex flex-col items-center justify-center py-10 gap-3 text-center"
             >
-              <Loader2 className="size-6 text-accent animate-spin" />
+              <Loader2 className="size-6 text-primary animate-spin" />
               <p className="text-sm text-muted">{screen.label}</p>
             </motion.div>
           )}
@@ -215,9 +215,9 @@ function QuickAction({
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-sm text-left bg-white/5 border border-white/10 hover:border-accent/40 hover:bg-white/[0.08] transition-colors"
+      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-sm text-left bg-white/5 border border-white/10 hover:border-primary/40 hover:bg-white/[0.08] transition-colors"
     >
-      <Icon className="size-4 text-accent shrink-0" />
+      <Icon className="size-4 text-primary shrink-0" strokeWidth={1.75} />
       {label}
       <ArrowRight className="size-3.5 text-muted ml-auto shrink-0" />
     </button>
@@ -236,9 +236,9 @@ function SpotlightCard({
   return (
     <Link
       href={`/dashboard/movie/${movie.id}`}
-      className="flex gap-3 rounded-xl bg-white/5 border border-white/10 p-3 hover:border-accent/40 transition-colors"
+      className="flex gap-3 rounded-lg bg-white/5 border border-white/10 p-3 hover:border-primary/40 transition-colors"
     >
-      <div className="relative w-16 aspect-[2/3] rounded-lg overflow-hidden shrink-0 bg-surface">
+      <div className="relative w-16 aspect-[2/3] rounded-md overflow-hidden shrink-0 bg-surface">
         {movie.posterPath ? (
           <Image src={`${IMAGE_BASE_URL}/w185${movie.posterPath}`} alt={movie.title} fill className="object-cover" />
         ) : null}
@@ -246,7 +246,7 @@ function SpotlightCard({
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2 mb-1">
           <h4 className="text-sm font-medium truncate">{movie.title}</h4>
-          <span className="flex items-center gap-1 text-xs text-accent shrink-0">
+          <span className="flex items-center gap-1 text-xs text-primary shrink-0">
             <Star className="size-3 fill-current" /> {badge}
           </span>
         </div>
@@ -273,7 +273,7 @@ function SearchBar({ onSubmit }: { onSubmit: (query: string) => void }) {
         e.preventDefault();
         if (value.trim().length > 1) onSubmit(value.trim());
       }}
-      className="relative border-t border-accent/20 p-3 flex items-center gap-2"
+      className="relative border-t border-white/[0.06] p-3 flex items-center gap-2"
     >
       <Search className="size-4 text-muted shrink-0" />
       <input

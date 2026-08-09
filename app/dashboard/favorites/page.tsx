@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Favorites — NextCinema" };
 export default function FavoritesPage() {
   return (
     <div>
-      <h1 className="font-heading text-2xl font-bold mb-1">Favorites</h1>
+      <h1 className="font-serif text-2xl mb-1">Favorites</h1>
       <p className="text-muted mb-8">Movies you&apos;ve saved.</p>
       <FavoritesSection />
     </div>

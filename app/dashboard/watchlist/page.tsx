@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Watchlist — NextCinema" };
 export default function WatchlistPage() {
   return (
     <div>
-      <h1 className="font-heading text-2xl font-bold mb-1">Watchlist</h1>
+      <h1 className="font-serif text-2xl mb-1">Watchlist</h1>
       <p className="text-muted mb-8">Movies you&apos;re planning to watch.</p>
       <WatchlistSection />
     </div>

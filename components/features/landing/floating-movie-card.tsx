@@ -3,60 +3,45 @@
 import { motion } from "framer-motion";
 import Image from "next/image";
 
-interface FloatingMovieCardProps {
+interface PosterTileProps {
   title: string;
   posterPath: string | null;
-  /** Position as percentages, so cards scale naturally with viewport size */
-  top: string;
-  left: string;
-  /** Stagger delay in seconds, and a distinct float duration so cards don't move in unison */
-  delay: number;
-  floatDuration: number;
-  rotate: number;
+  /** Positioning + sizing utility classes (top/left/right/bottom, width, z-index) — the collage layout lives in the parent so this stays a dumb, reusable tile. */
+  className?: string;
+  rotate?: number;
+  delay?: number;
 }
 
 const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /**
- * A single decorative poster that gently floats up/down forever once
- * mounted. Purely visual — not interactive, not keyboard-focusable —
- * so it's marked aria-hidden to avoid confusing screen reader users.
+ * A single poster in the hero's asymmetric collage. Physical-poster feel —
+ * slight rotation, soft shadow, a hairline edge — with a one-time entrance
+ * (no infinite floating loop) and a restrained hover lift. Purely
+ * decorative, so it's marked aria-hidden.
  */
-export function FloatingMovieCard({
-  title,
-  posterPath,
-  top,
-  left,
-  delay,
-  floatDuration,
-  rotate,
-}: FloatingMovieCardProps) {
+export function FloatingMovieCard({ title, posterPath, className = "", rotate = 0, delay = 0 }: PosterTileProps) {
   if (!posterPath) return null;
 
   return (
     <motion.div
       aria-hidden="true"
-      initial={{ opacity: 0, scale: 0.8 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        y: [0, -16, 0],
-      }}
-      transition={{
-        opacity: { duration: 0.6, delay },
-        scale: { duration: 0.6, delay },
-        y: { duration: floatDuration, repeat: Infinity, ease: "easeInOut", delay },
-      }}
-      style={{ top, left, rotate: `${rotate}deg` }}
-      className="absolute w-28 md:w-36 rounded-xl overflow-hidden glass shadow-2xl hidden sm:block"
+      initial={{ opacity: 0, y: 28, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      style={{ rotate: `${rotate}deg` }}
+      className={`absolute rounded-lg overflow-hidden ring-1 ring-white/[0.07] shadow-[0_24px_48px_-16px_rgba(0,0,0,0.7)] ${className}`}
     >
-      <Image
-        src={`${IMAGE_BASE_URL}/w342${posterPath}`}
-        alt={title}
-        width={342}
-        height={513}
-        className="w-full h-auto"
-      />
+      <div className="relative aspect-[2/3] bg-surface">
+        <Image
+          src={`${IMAGE_BASE_URL}/w500${posterPath}`}
+          alt={title}
+          fill
+          sizes="(max-width: 1024px) 35vw, 260px"
+          className="object-cover"
+        />
+      </div>
     </motion.div>
   );
 }

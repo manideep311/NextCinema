@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { DashboardSection } from "@/components/features/dashboard/dashboard-section";
 import { MovieGrid, MovieGridSkeleton } from "@/components/features/movies/movie-grid";
 import { useAuth } from "@/components/providers/auth-provider";
+import { findJourneyByTitle } from "@/lib/journeys/definitions";
 import type { MovieProfile } from "@/types/movie";
 
 interface ForYouMovie extends Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear"> {
@@ -37,10 +38,14 @@ export function ForYouSection({ limit = 10 }: { limit?: number }) {
     };
   }, [limit]);
 
+  // Pure title match, no I/O — if the movie this row is based on happens
+  // to belong to a known journey, offer a direct path into it alongside
+  // (not instead of) the normal recommendations below.
+  const journeyMatch = useMemo(() => (basedOnTitle ? findJourneyByTitle(basedOnTitle) : undefined), [basedOnTitle]);
+
   return (
     <DashboardSection title="For You">
-      <div className="flex items-center gap-2 -mt-2 mb-4 text-sm text-muted">
-        <Sparkles className="size-3.5 text-accent" />
+      <div className="-mt-2 mb-1 text-sm text-muted">
         {basedOnTitle ? (
           <span>
             Because you liked <span className="text-text font-medium">{basedOnTitle}</span>
@@ -56,6 +61,15 @@ export function ForYouSection({ limit = 10 }: { limit?: number }) {
           </span>
         )}
       </div>
+
+      {journeyMatch && (
+        <Link
+          href={`/dashboard/journeys/${journeyMatch.id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline mb-4"
+        >
+          Continue the {journeyMatch.shortName} journey <ArrowRight className="size-3.5" />
+        </Link>
+      )}
 
       {movies === null ? (
         <MovieGridSkeleton />

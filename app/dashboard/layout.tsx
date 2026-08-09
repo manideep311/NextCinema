@@ -3,6 +3,7 @@ import { TopNav } from "@/components/layout/top-nav";
 import { GuestBanner } from "@/components/features/dashboard/guest-banner";
 import { CommandPaletteProvider } from "@/components/providers/command-palette-provider";
 import { CommandPalette } from "@/components/features/search/command-palette";
+import { PageTransition } from "@/components/motion/page-transition";
 import { getSession } from "@/lib/auth/session";
 
 export default async function DashboardLayout({
@@ -20,7 +21,7 @@ export default async function DashboardLayout({
           <TopNav />
           <main className="p-4 md:p-8">
             {!session && <GuestBanner />}
-            {children}
+            <PageTransition>{children}</PageTransition>
           </main>
         </div>
       </div>

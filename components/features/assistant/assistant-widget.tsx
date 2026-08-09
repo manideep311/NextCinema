@@ -16,10 +16,13 @@ const MascotAvatar = dynamic(() =>
 const AssistantPanel = dynamic(() =>
   import("@/components/features/assistant/assistant-panel").then((m) => m.AssistantPanel)
 );
+const PosterPuzzle = dynamic(() =>
+  import("@/components/features/assistant/poster-puzzle/poster-puzzle").then((m) => m.PosterPuzzle)
+);
 
 /**
- * The site-wide AI companion — a fixed corner mascot (not a free-roaming
- * physics-driven character; see design notes) that opens a holographic
+ * Bujji — NextCinema's movie companion. A small fixed corner trigger (not
+ * a mascot character; see mascot-avatar.tsx design notes) that opens a
  * quick-action panel on click. Mounted once in the root layout, but only
  * renders for signed-in users — guests never see it, and never load it.
  */
@@ -27,28 +30,42 @@ export function AssistantWidget() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [isPuzzleOpen, setIsPuzzleOpen] = useState(false);
   const prefersReducedMotion = useReducedMotion();
 
   if (!user) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 pointer-events-none">
-      <div className="relative pointer-events-none">
-        <AnimatePresence>
-          {isOpen && <AssistantPanel onClose={() => setIsOpen(false)} onThinkingChange={setIsThinking} />}
-        </AnimatePresence>
+    <>
+      <div className="fixed bottom-4 right-4 z-50 pointer-events-none">
+        <div className="relative pointer-events-none">
+          <AnimatePresence>
+            {isOpen && (
+              <AssistantPanel
+                onClose={() => setIsOpen(false)}
+                onThinkingChange={setIsThinking}
+                onOpenPuzzle={() => setIsPuzzleOpen(true)}
+              />
+            )}
+          </AnimatePresence>
 
-        <motion.button
-          onClick={() => setIsOpen((open) => !open)}
-          aria-label={isOpen ? "Close NextCinema assistant" : "Open NextCinema assistant"}
-          aria-expanded={isOpen}
-          whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
-          whileTap={{ scale: 0.94 }}
-          className="pointer-events-auto block rounded-full"
-        >
-          <MascotAvatar isActive={isOpen} isThinking={isThinking} />
-        </motion.button>
+          <motion.button
+            onClick={() => setIsOpen((open) => !open)}
+            aria-label={isOpen ? "Close Bujji, your movie companion" : "Open Bujji, your movie companion"}
+            aria-expanded={isOpen}
+            title="Bujji"
+            whileHover={prefersReducedMotion ? undefined : { scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
+            className="pointer-events-auto block rounded-full"
+          >
+            <MascotAvatar isActive={isOpen} isThinking={isThinking} />
+          </motion.button>
+        </div>
       </div>
-    </div>
+
+      {/* Rendered outside the corner widget so it can be a full, centered
+         modal regardless of the trigger's fixed position. */}
+      <PosterPuzzle open={isPuzzleOpen} onClose={() => setIsPuzzleOpen(false)} />
+    </>
   );
 }

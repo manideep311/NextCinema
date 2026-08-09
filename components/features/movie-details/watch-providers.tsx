@@ -60,7 +60,7 @@ export function WatchProviders({ region, movieTitle }: WatchProvidersProps) {
             target="_blank"
             rel="noopener noreferrer"
             title={`Watch on ${provider.provider_name}`}
-            className="block rounded-xl overflow-hidden bg-white/90 hover:opacity-80 transition-opacity shrink-0"
+            className="block rounded-lg overflow-hidden bg-white/90 hover:opacity-80 transition-opacity shrink-0"
           >
             {provider.logo_path ? (
               <Image

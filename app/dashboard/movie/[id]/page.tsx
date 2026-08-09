@@ -2,14 +2,19 @@ import { notFound } from "next/navigation";
 import { getMovieWithExtras, getSimilarMovies, getMovieVideos, getWatchProviders } from "@/services/tmdb";
 import { mapExtrasToProfile } from "@/lib/movie-mapper";
 import { recommendMovies } from "@/lib/recommendation-engine";
+import { getSession } from "@/lib/auth/session";
+import { findJourneyByTitle } from "@/lib/journeys/definitions";
+import { getJourneyDetail } from "@/services/journeys";
 import { MovieHero } from "@/components/features/movie-details/movie-hero";
 import { CastList } from "@/components/features/movie-details/cast-list";
 import { TrailerEmbed } from "@/components/features/movie-details/trailer-embed";
-import { MovieFacts } from "@/components/features/movie-details/movie-facts";
+import { hasTrailer } from "@/lib/movie-details/trailer";
+import { MovieFacts, hasMovieFacts } from "@/components/features/movie-details/movie-facts";
 import { AiSummary } from "@/components/features/movie-details/ai-summary";
 import { SimilarMovies } from "@/components/features/movie-details/similar-movies";
 import { WatchProviders, hasWatchProviders } from "@/components/features/movie-details/watch-providers";
 import { RecordView } from "@/components/features/movie-details/record-view";
+import { MovieDetailContinueJourney } from "@/components/features/journeys/continue-journey";
 import { TmdbApiError } from "@/lib/tmdb-client";
 
 interface MovieDetailsPageProps {
@@ -38,15 +43,24 @@ export default async function MovieDetailsPage({ params }: MovieDetailsPageProps
   }
 
   const profile = mapExtrasToProfile(movieData);
+  // Pure title match, no I/O — see lib/journeys/definitions.ts. Only when
+  // this movie actually belongs to a known journey do we pay for
+  // resolving that journey's movies below.
+  const journeyDef = findJourneyByTitle(profile.title);
 
   // Everything below is secondary content — trailer, similar movies, watch
-  // providers — none of it should be able to take down the whole page if
-  // TMDB drops a connection on one of these calls. Each one degrades to an
-  // empty/null result instead of throwing.
-  const [similarPage, videosResponse, watchProviders] = await Promise.all([
+  // providers, journey position — none of it should be able to take down
+  // the whole page if TMDB (or Mongo, for journey progress) drops a
+  // connection. Each one degrades to an empty/null result instead of throwing.
+  const [similarPage, videosResponse, watchProviders, journeyDetail] = await Promise.all([
     getSimilarMovies(movieId).catch(() => ({ page: 1, results: [], total_pages: 0, total_results: 0 })),
     getMovieVideos(movieId).catch(() => ({ results: [] })),
     getWatchProviders(movieId).catch(() => null),
+    journeyDef
+      ? getSession()
+          .then((session) => getJourneyDetail(journeyDef, "release", session?.userId ?? null))
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
   const watchRegion = watchProviders?.results?.IN;
 
@@ -83,46 +97,69 @@ export default async function MovieDetailsPage({ params }: MovieDetailsPageProps
         runtime={movieData.runtime}
       />
 
-      <div className="px-4 md:px-8 space-y-10">
+      <div className="px-4 md:px-8 space-y-14 max-w-5xl">
+        {journeyDetail && (
+          <MovieDetailContinueJourney
+            journeyId={journeyDetail.id}
+            journeyName={journeyDetail.name}
+            movies={journeyDetail.releaseOrderMovies}
+            currentMovieId={profile.id}
+          />
+        )}
+
         {hasWatchProviders(watchRegion) && (
           <div>
-            <h2 className="font-heading text-lg font-semibold mb-3">Where to Watch</h2>
+            <h2 className="font-serif text-xl mb-3">Where to Watch</h2>
             <WatchProviders region={watchRegion} movieTitle={profile.title} />
           </div>
         )}
 
         <div>
-          <h2 className="font-heading text-lg font-semibold mb-3">Overview</h2>
+          <h2 className="font-serif text-xl mb-3">Overview</h2>
           <p className="text-muted leading-relaxed max-w-3xl mb-4">{movieData.overview}</p>
           <AiSummary movie={profile} />
         </div>
 
-        <div>
-          <h2 className="font-heading text-lg font-semibold mb-3">Cast</h2>
-          <CastList cast={movieData.credits.cast} />
-        </div>
+        {movieData.credits.cast.length > 0 && (
+          <div>
+            <h2 className="font-serif text-xl mb-3">Cast</h2>
+            <CastList cast={movieData.credits.cast} />
+          </div>
+        )}
 
-        <div>
-          <h2 className="font-heading text-lg font-semibold mb-3">Trailer</h2>
-          <TrailerEmbed videos={videosResponse.results} />
-        </div>
+        {hasTrailer(videosResponse.results) && (
+          <div>
+            <h2 className="font-serif text-xl mb-3">Trailer</h2>
+            <TrailerEmbed videos={videosResponse.results} />
+          </div>
+        )}
 
-        <div>
-          <h2 className="font-heading text-lg font-semibold mb-3">Movie Facts</h2>
-          <MovieFacts
-            budget={movieData.budget}
-            revenue={movieData.revenue}
-            status={movieData.status}
-            productionCompanies={movieData.production_companies}
-            spokenLanguages={movieData.spoken_languages}
-          />
-        </div>
+        {hasMovieFacts({
+          budget: movieData.budget,
+          revenue: movieData.revenue,
+          status: movieData.status,
+          productionCompanies: movieData.production_companies,
+          spokenLanguages: movieData.spoken_languages,
+        }) && (
+          <div>
+            <h2 className="font-serif text-xl mb-3">Movie Facts</h2>
+            <MovieFacts
+              budget={movieData.budget}
+              revenue={movieData.revenue}
+              status={movieData.status}
+              productionCompanies={movieData.production_companies}
+              spokenLanguages={movieData.spoken_languages}
+            />
+          </div>
+        )}
 
-        <div>
-          <h2 className="font-heading text-lg font-semibold mb-3">Similar Movies</h2>
-          <p className="text-muted text-sm mb-4">Ranked and explained by NextCinema, not just TMDB's raw list.</p>
-          <SimilarMovies recommendations={similarMovies} />
-        </div>
+        {similarMovies.length > 0 && (
+          <div>
+            <h2 className="font-serif text-xl mb-3">Similar Movies</h2>
+            <p className="text-muted text-sm mb-4">Ranked and explained by NextCinema, not just TMDB&apos;s raw list.</p>
+            <SimilarMovies recommendations={similarMovies} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -36,11 +36,11 @@ export function Navbar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.4 }}
       className={`fixed top-0 left-0 right-0 z-50 transition-colors duration-300 ${
-        isScrolled ? "bg-background border-b border-white/10" : "bg-transparent"
+        isScrolled ? "bg-background/95 border-b border-white/[0.06]" : "bg-transparent"
       }`}
     >
       <nav className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2 font-heading font-bold text-lg">
+        <Link href="/" className="flex items-center gap-2 font-serif font-semibold text-lg tracking-tight">
           <Logo />
         </Link>
 
@@ -59,11 +59,11 @@ export function Navbar() {
         <div className="hidden md:block">
           {!isLoading && user ? (
             <Link href="/dashboard">
-              <Button className="bg-primary hover:bg-primary/90 rounded-xl">Go to Dashboard</Button>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg">Go to Dashboard</Button>
             </Link>
           ) : (
             <Link href="/login">
-              <Button className="bg-primary hover:bg-primary/90 rounded-xl">Sign in</Button>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg">Sign in</Button>
             </Link>
           )}
         </div>
@@ -83,7 +83,7 @@ export function Navbar() {
           animate={{ height: "auto", opacity: 1 }}
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.25 }}
-          className="md:hidden bg-background border border-white/10 mx-4 mb-4 rounded-xl px-6 py-4 flex flex-col gap-4"
+          className="md:hidden glass mx-4 mb-4 rounded-lg px-6 py-4 flex flex-col gap-4"
         >
           {NAV_LINKS.map((link) => (
             <a
@@ -97,13 +97,13 @@ export function Navbar() {
           ))}
           {!isLoading && user ? (
             <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button className="bg-primary hover:bg-primary/90 rounded-xl w-full">
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg w-full">
                 Go to Dashboard
               </Button>
             </Link>
           ) : (
             <Link href="/login" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button className="bg-primary hover:bg-primary/90 rounded-xl w-full">Sign in</Button>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg w-full">Sign in</Button>
             </Link>
           )}
         </motion.div>

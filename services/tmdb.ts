@@ -50,6 +50,20 @@ export function searchMovies(query: string, page = 1) {
   });
 }
 
+/**
+ * Same underlying endpoint as `searchMovies`, but cached for a month —
+ * used to resolve Movie Journeys' static title/year definitions
+ * (lib/journeys/definitions.ts) to real TMDB movies. Unlike a live search
+ * box, a journey entry's identity never changes day to day, so there's no
+ * reason to pay TMDB's rate limit on every request.
+ */
+export function searchMovieForResolution(query: string) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/search/movie", {
+    params: { query },
+    revalidateSeconds: 2592000, // 30 days
+  });
+}
+
 /** Full details for a single movie's detail page. */
 export function getMovieDetails(movieId: number) {
   return tmdbFetch<TmdbMovieDetails>(`/movie/${movieId}`, {
@@ -121,6 +135,46 @@ export function getMoviesByLanguage(languageCode: string, page = 1) {
     params: {
       with_original_language: languageCode,
       sort_by: "popularity.desc",
+      page: String(page),
+    },
+    revalidateSeconds: 3600,
+  });
+}
+
+/**
+ * Same discover endpoint as `getMoviesByLanguage`, sorted by rating instead
+ * of popularity, with a vote-count floor so a handful of 9/10s from a
+ * barely-seen title can't outrank movies with real consensus behind them.
+ * Powers the Overview's Top Rated / Hidden Gems / Under the Radar
+ * industry collections (see services/discovery.ts) — never a second,
+ * duplicate trending/popular system.
+ */
+export function getTopRatedByLanguage(languageCode: string, page = 1) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
+    params: {
+      with_original_language: languageCode,
+      sort_by: "vote_average.desc",
+      "vote_count.gte": "100",
+      page: String(page),
+    },
+    revalidateSeconds: 3600,
+  });
+}
+
+/**
+ * Recently released movies for a given language, newest first — bounded to
+ * `primary_release_date.lte` today so a not-yet-released title (TMDB
+ * sometimes has future dates queued) never shows up as a "new release".
+ * Powers the Overview's New Releases industry collection.
+ */
+export function getNewReleasesByLanguage(languageCode: string, page = 1) {
+  const today = new Date().toISOString().slice(0, 10);
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
+    params: {
+      with_original_language: languageCode,
+      sort_by: "primary_release_date.desc",
+      "primary_release_date.lte": today,
+      "vote_count.gte": "5",
       page: String(page),
     },
     revalidateSeconds: 3600,

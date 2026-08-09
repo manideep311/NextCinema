@@ -17,7 +17,7 @@ export default async function TrendingPage() {
 
   return (
     <div>
-      <h1 className="font-heading text-2xl font-bold mb-1">Trending</h1>
+      <h1 className="font-serif text-2xl mb-1">Trending</h1>
       <p className="text-muted mb-8">What everyone&apos;s watching this week.</p>
       <DashboardSection title="Trending This Week">
         <MovieGrid movies={movies} />

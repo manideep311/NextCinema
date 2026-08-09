@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const GENRES = ["Sci-Fi", "Drama", "Thriller", "Comedy", "Animation"] as const;
@@ -111,11 +111,11 @@ export function RecommendationShowcase() {
         transition={{ duration: 0.5 }}
         className="text-center mb-12"
       >
-        <h2 className="font-heading text-3xl md:text-4xl font-bold mb-4">
-          Tell it what you&apos;re <span className="gradient-text">in the mood for</span>
+        <h2 className="font-serif text-3xl md:text-4xl mb-4">
+          Tell us what you&apos;re <span className="gradient-text">in the mood for</span>
         </h2>
         <p className="text-muted max-w-xl mx-auto">
-          Pick a genre, mood, or decade and watch the match scores update instantly.
+          Pick a genre, mood, or decade and watch the picks update instantly — every one explained.
         </p>
       </motion.div>
 
@@ -140,8 +140,7 @@ export function RecommendationShowcase() {
           className="glass rounded-2xl p-6 min-h-[280px] flex flex-col"
         >
           <div className="flex items-center gap-2 text-sm text-muted mb-4">
-            <Sparkles className="size-4 text-accent" />
-            {isThinking ? "Matching your taste…" : "Top matches"}
+            {isThinking ? "Finding matches…" : "Top matches"}
           </div>
 
           <AnimatePresence mode="wait">
@@ -153,8 +152,8 @@ export function RecommendationShowcase() {
                 exit={{ opacity: 0 }}
                 className="flex-1 flex items-center justify-center text-muted gap-2"
               >
-                <Loader2 className="size-5 animate-spin text-accent" />
-                <span className="text-sm">AI is thinking…</span>
+                <Loader2 className="size-5 animate-spin text-primary" />
+                <span className="text-sm">One moment…</span>
               </motion.div>
             ) : (
               <motion.div

@@ -1,16 +1,13 @@
 ﻿"use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Play } from "lucide-react";
 import type { TmdbVideo } from "@/types/tmdb";
+import { pickBestTrailer } from "@/lib/movie-details/trailer";
 
 interface TrailerEmbedProps {
   videos: TmdbVideo[];
-}
-
-function pickBestTrailer(videos: TmdbVideo[]): TmdbVideo | null {
-  const youtubeTrailers = videos.filter((v) => v.site === "YouTube" && v.type === "Trailer");
-  return youtubeTrailers.find((v) => v.official) ?? youtubeTrailers[0] ?? null;
 }
 
 export function TrailerEmbed({ videos }: TrailerEmbedProps) {
@@ -21,7 +18,7 @@ export function TrailerEmbed({ videos }: TrailerEmbedProps) {
 
   if (isPlaying) {
     return (
-      <div className="aspect-video rounded-xl overflow-hidden">
+      <div className="aspect-video rounded-lg overflow-hidden">
         <iframe
           src={`https://www.youtube.com/embed/${trailer.key}?autoplay=1`}
           title={trailer.name}
@@ -36,16 +33,18 @@ export function TrailerEmbed({ videos }: TrailerEmbedProps) {
   return (
     <button
       onClick={() => setIsPlaying(true)}
-      className="relative aspect-video rounded-xl overflow-hidden glass w-full group"
+      className="relative aspect-video rounded-lg overflow-hidden glass w-full group"
     >
-      <img
+      <Image
         src={`https://img.youtube.com/vi/${trailer.key}/hqdefault.jpg`}
         alt={trailer.name}
-        className="w-full h-full object-cover"
+        fill
+        sizes="(min-width: 1024px) 768px, 100vw"
+        className="object-cover"
       />
-      <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
-        <div className="size-16 rounded-full bg-primary flex items-center justify-center">
-          <Play className="size-6 fill-current ml-1" />
+      <div className="absolute inset-0 bg-black/50 flex items-center justify-center group-hover:bg-black/60 transition-colors">
+        <div className="size-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center transition-transform group-hover:scale-105">
+          <Play className="size-5 fill-current ml-0.5" />
         </div>
       </div>
     </button>

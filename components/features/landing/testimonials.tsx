@@ -32,7 +32,7 @@ export function Testimonials() {
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5 }}
-        className="font-heading text-3xl md:text-4xl font-bold text-center mb-16"
+        className="font-serif text-3xl md:text-4xl text-center mb-16"
       >
         Loved by <span className="gradient-text">movie fans</span>
       </motion.h2>
@@ -45,10 +45,10 @@ export function Testimonials() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.1 }}
-            className="glass rounded-xl p-6"
+            className="glass rounded-lg p-6"
           >
             <Quote className="size-6 text-primary mb-4" />
-            <p className="text-text mb-4 text-sm leading-relaxed">"{t.quote}"</p>
+            <p className="text-text mb-4 text-sm leading-relaxed">&quot;{t.quote}&quot;</p>
             <p className="text-sm font-semibold">{t.name}</p>
             <p className="text-muted text-xs">{t.role}</p>
           </motion.div>

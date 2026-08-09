@@ -42,11 +42,22 @@ export function AuthProvider({
 
   useEffect(() => {
     // Server already told us who's signed in — skip the redundant fetch.
-    if (initialUser !== null) {
-      setIsLoading(false);
-      return;
-    }
-    refresh();
+    // No state to set here: `isLoading`'s own initializer already starts
+    // at `false` in this case (see useState above), so there was never
+    // anything for this branch to do beyond bailing out.
+    if (initialUser !== null) return;
+    let cancelled = false;
+    // `refresh` itself calls setState once its fetch resolves, but invoking
+    // it directly here is still a synchronous call in the effect body from
+    // the linter's point of view — deferring the call keeps it inside an
+    // async continuation instead.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      refresh();
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
