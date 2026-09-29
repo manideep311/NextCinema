@@ -38,7 +38,6 @@ export function TopNav() {
     await logout();
     setIsUserMenuOpen(false);
     router.push("/");
-    router.refresh();
   }
 
   return (

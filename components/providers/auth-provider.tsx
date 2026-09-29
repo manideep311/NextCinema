@@ -1,12 +1,15 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { AuthUser } from "@/types/auth";
+import { clearUserScopedStorage } from "@/lib/local-storage";
 
 interface AuthContextValue {
   user: AuthUser | null;
+  /** Kept for API compatibility — the server always resolves the session before render, so this is never true. */
   isLoading: boolean;
-  /** Re-fetches /api/auth/session — call after login/signup/logout so every consumer updates. */
+  /** Re-reads /api/auth/session — call after login/signup so every consumer updates. */
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -14,19 +17,20 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 /**
- * Wraps the whole app. Fetches session state once on mount so client
- * components (navbar, favorite buttons, dashboard) can render
- * auth-aware UI without every single one making its own request.
+ * Wraps the whole app. The root layout verifies the session cookie on the
+ * server and passes the result in (`null` = signed out), so there is no
+ * client-side session fetch on page load for anyone — signed in or not.
+ * The JWT itself stays in an httpOnly cookie and is never visible here.
  */
 export function AuthProvider({
   children,
-  initialUser = null,
+  initialUser,
 }: {
   children: React.ReactNode;
-  initialUser?: AuthUser | null;
+  initialUser: AuthUser | null;
 }) {
   const [user, setUser] = useState<AuthUser | null>(initialUser);
-  const [isLoading, setIsLoading] = useState(initialUser === null);
+  const router = useRouter();
 
   const refresh = useCallback(async () => {
     try {
@@ -35,39 +39,21 @@ export function AuthProvider({
       setUser(data.user ?? null);
     } catch {
       setUser(null);
-    } finally {
-      setIsLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    // Server already told us who's signed in — skip the redundant fetch.
-    // No state to set here: `isLoading`'s own initializer already starts
-    // at `false` in this case (see useState above), so there was never
-    // anything for this branch to do beyond bailing out.
-    if (initialUser !== null) return;
-    let cancelled = false;
-    // `refresh` itself calls setState once its fetch resolves, but invoking
-    // it directly here is still a synchronous call in the effect body from
-    // the linter's point of view — deferring the call keeps it inside an
-    // async continuation instead.
-    queueMicrotask(() => {
-      if (cancelled) return;
-      refresh();
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const logout = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
+    const signedOutUserId = user?.id;
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    // Per-user browser data (recent searches) shouldn't outlive the session on a shared device.
+    if (signedOutUserId) clearUserScopedStorage(signedOutUserId);
     setUser(null);
-  }, []);
+    // Re-render server components without the session: protected pages redirect, libraries reset.
+    router.refresh();
+  }, [router, user?.id]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, refresh, logout }}>
+    <AuthContext.Provider value={{ user, isLoading: false, refresh, logout }}>
       {children}
     </AuthContext.Provider>
   );

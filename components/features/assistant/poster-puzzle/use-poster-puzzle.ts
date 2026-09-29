@@ -6,7 +6,6 @@ import {
   DIFFICULTY_CONFIG,
   MAX_HINTS,
   buildShuffledTiles,
-  dayOfYearSeed,
   getNeighbors,
   isSolved,
   type Difficulty,
@@ -14,7 +13,6 @@ import {
   type PuzzleSource,
   type PuzzleStatus,
 } from "@/components/features/assistant/poster-puzzle/puzzle-types";
-import { recordPuzzleCompletion } from "@/components/features/assistant/poster-puzzle/puzzle-history";
 
 const LONG_SOLVE_MS = 45_000;
 const FAST_SOLVE_MS = 20_000;
@@ -168,7 +166,6 @@ export function usePosterPuzzle(isOpen: boolean) {
     (pos: number) => {
       if (status !== "ready" && status !== "playing") return;
       if (!movie) return;
-      const currentMovie = movie;
 
       const size = DIFFICULTY_CONFIG[difficulty].size;
       const blankHome = size * size - 1;
@@ -190,14 +187,6 @@ export function usePosterPuzzle(isOpen: boolean) {
       if (isSolved(next)) {
         const finalElapsed = justStarted ? 0 : startRef.current ? Date.now() - startRef.current : elapsedMs;
         setElapsedMs(finalElapsed);
-        recordPuzzleCompletion({
-          movieId: currentMovie.id,
-          title: currentMovie.title,
-          difficulty,
-          timeMs: finalElapsed,
-          moves: moves + 1,
-          completedAt: Date.now(),
-        });
 
         // A short pause on the finished poster — let the final tile's own
         // layout animation settle — before handing off to the result screen.
@@ -209,7 +198,7 @@ export function usePosterPuzzle(isOpen: boolean) {
         }
       }
     },
-    [status, movie, tiles, difficulty, moves, elapsedMs, reducedMotion]
+    [status, movie, tiles, difficulty, elapsedMs, reducedMotion]
   );
 
   const useHint = useCallback(() => {
@@ -249,12 +238,6 @@ export function usePosterPuzzle(isOpen: boolean) {
     startNew(pick, difficulty);
   }, [pool, movie, difficulty, startNew]);
 
-  const loadTodaysPoster = useCallback(() => {
-    if (pool.length === 0) return;
-    const pick = pool[dayOfYearSeed() % pool.length];
-    startNew(pick, difficulty);
-  }, [pool, difficulty, startNew]);
-
   // Switches the movie pool to a different category (Trending, or one of
   // the industry/language tabs from /dashboard/categories) — refetches via
   // the effect above and auto-picks a fresh movie from the new pool.
@@ -282,9 +265,9 @@ export function usePosterPuzzle(isOpen: boolean) {
       ? "That corner looks suspicious."
       : progressRatio >= NEAR_COMPLETE_RATIO
         ? "You're getting close."
-        : "Can you recognize the movie?";
+        : "Slide the tiles to rebuild the poster.";
   } else if (status === "ready") {
-    companionLine = "Can you recognize the movie?";
+    companionLine = "Slide the tiles to rebuild the poster.";
   }
 
   return {
@@ -306,6 +289,5 @@ export function usePosterPuzzle(isOpen: boolean) {
     changeDifficulty,
     changeSource,
     newPuzzle,
-    loadTodaysPoster,
   };
 }

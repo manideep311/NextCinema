@@ -1,35 +1,36 @@
 /**
- * One-time (idempotent) index setup — MongoDB has no schema migrations
- * to run, but unique indexes still need to be created explicitly.
+ * Idempotent index setup — MongoDB has no schema migrations to run, but
+ * unique indexes still need to be created explicitly. Safe to re-run.
  *
- * Usage: npm run db:indexes
+ * Usage: npm run db:indexes   (reads MONGODB_URI / MONGODB_DB from .env / .env.local)
  */
-// Relative import, not the "@/" alias — this file runs standalone via
-// `tsx` (npm run db:indexes), outside Next's webpack path-alias resolution.
-import { getUsersCollection, getFavoritesCollection, getWatchlistCollection, getWatchHistoryCollection } from "./index";
+// Relative imports, not the "@/" alias — this file runs standalone via
+// `tsx`, outside Next's module resolution. It also avoids ./index.ts
+// (which is "server-only") by opening its own short-lived client.
+import { MongoClient } from "mongodb";
+import { INDEX_SPECS } from "./indexes";
+
+const DEFAULT_DB_NAME = "cinematch";
 
 async function main() {
-  const [users, favorites, watchlist, watchHistory] = await Promise.all([
-    getUsersCollection(),
-    getFavoritesCollection(),
-    getWatchlistCollection(),
-    getWatchHistoryCollection(),
-  ]);
+  const uri = process.env.MONGODB_URI;
+  if (!uri) throw new Error("MONGODB_URI is not set (add it to .env.local).");
 
-  await users.createIndex({ email: 1 }, { unique: true });
-  await favorites.createIndex({ userId: 1, movieId: 1 }, { unique: true });
-  await watchlist.createIndex({ userId: 1, movieId: 1 }, { unique: true });
-  await watchHistory.createIndex({ userId: 1, movieId: 1 }, { unique: true });
-  // Speeds up "list my favorites, most recent first" style queries.
-  await favorites.createIndex({ userId: 1, addedAt: -1 });
-  await watchlist.createIndex({ userId: 1, addedAt: -1 });
-  await watchHistory.createIndex({ userId: 1, viewedAt: -1 });
-
-  console.log("✓ MongoDB indexes created.");
-  process.exit(0);
+  const client = await new MongoClient(uri).connect();
+  try {
+    const db = client.db(process.env.MONGODB_DB || DEFAULT_DB_NAME);
+    for (const [collection, specs] of Object.entries(INDEX_SPECS)) {
+      const names = await db.collection(collection).createIndexes(specs);
+      console.log(`✓ ${collection}: ${names.join(", ")}`);
+    }
+    console.log("✓ MongoDB indexes are up to date.");
+  } finally {
+    await client.close();
+  }
 }
 
-main().catch((error) => {
-  console.error("Failed to create indexes:", error);
+main().catch((error: unknown) => {
+  // Only the error message — never the connection string.
+  console.error("Failed to create indexes:", error instanceof Error ? error.message : "unknown error");
   process.exit(1);
 });

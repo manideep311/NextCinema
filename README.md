@@ -56,14 +56,26 @@ match was picked.
 
 ## Architecture notes
 
-- **Recommendation engine** (`lib/recommendation-engine.ts`) — pure, side-effect-free scoring function (genre/keyword/cast/director/rating/popularity weighted similarity), swappable independently of the rest of the app.
-- **Auth** (`lib/auth/`) — session is a signed JWT in an httpOnly cookie, verified on the server via `getSession()`. No external auth provider or dependency beyond `jose`.
-- **Favorites / Watchlist** — account-only. Signed-in users get MongoDB-backed persistence (`services/favorites.ts`, `services/watchlist.ts`); signed-out visitors are redirected to sign in when they try to save something, rather than getting a Local Storage save that could never be seen again.
-- **Recently Viewed / History** — account-only. Signed-in users get MongoDB-backed history (`services/watch-history.ts`, `hooks/use-recently-viewed.ts`); guests see nothing recorded and nothing persisted.
-- **Search** (`/dashboard/search`, and the ⌘K command palette from any dashboard page) — title search plus deterministic mood/genre matching (`lib/mood-lexicon.ts`), no LLM involved. Guest-accessible; recent searches are only stored for signed-in users.
-- **"For You"** (`services/for-you.ts`) — seeded from the user's most recently favorited movie. Account-only in the UI and gated server-side in `/api/recommendations/for-you`.
-- **Categories** (`/dashboard/categories`) — browse by industry (Tollywood/Bollywood/Kollywood/Mollywood/Hollywood via TMDB's `original_language` filter, plus an "Other" catch-all). Guest-accessible, like Trending and Search.
-- **AI assistant** (`components/features/assistant/`) — a mascot + holographic quick-action panel, signed-in users only. Not LLM-backed: every answer comes from the existing recommendation engine, trending, and search endpoints, code-split via `next/dynamic` so guests never download it.
+### Security
+- **Sessions** (`lib/auth/token.ts`, `lib/auth/session.ts`) — HS256 JWT (issuer/audience/expiry checked, `alg` pinned, payload shape validated) in an `httpOnly`, `SameSite=Lax`, `Secure`-in-production cookie. 7-day lifetime with sliding renewal in `proxy.ts`. The token is never readable by browser JavaScript.
+- **Authorization** — every user-scoped route runs `request → verify session → derive user id → rate limit → validate → act`. The user id comes only from the verified session; strict body schemas reject any client-sent `userId`. Protected pages check the session themselves — `proxy.ts`'s redirect is a UX shortcut, not the gate.
+- **Passwords** (`lib/auth/password.ts`) — scrypt (N=2¹⁵, r=8, p=1) in a self-describing format; older hashes still verify and are upgraded on login. Unknown emails pay the same scrypt cost as wrong passwords, and both return the same error.
+- **Input validation** (`lib/validation.ts`, `lib/http.ts`) — zod schemas for ids, pages, queries, and bodies; JSON bodies are size-capped and content-type checked; mutating requests are rejected cross-site (`Sec-Fetch-Site`/`Origin`).
+- **Rate limiting** (`lib/rate-limit.ts`) — in-memory fixed windows per IP or per user for login, signup, search, recommendations, TMDB-backed routes, and writes. Per instance and best-effort by design (no extra infrastructure).
+
+### Data
+- **Public vs user data** — everything in `services/tmdb.ts` is public movie data cached in Next's Data Cache (`TMDB_CACHE` sets lifetimes by data type). User data (favorites, watchlist, history, watched) is never put in a shared cache.
+- **TMDB client** (`lib/tmdb-client.ts`) — in-flight de-duplication, a concurrency cap, timeouts, and retries on 429/5xx.
+- **MongoDB** — every index in `lib/db/indexes.ts` exists for a named query; list reads use projections, counts use `countDocuments`, and writes are idempotent (`$setOnInsert` upserts behind unique `(userId, movieId)` indexes).
+- **Viewed vs watched** — `watch_history` records pages opened (Recently Viewed); `watched` records explicit "Mark as Watched" and is the only thing journey progress counts.
+
+### Features
+- **Recommendation engine** (`lib/recommendation-engine.ts`) — pure and deterministic; weighted genre/keyword/cast/director/rating/popularity similarity with explained reasons. "% Match" is normalized over the signals the seed movie actually has (ranking is unchanged by the normalization). Per-movie results are cached as public data and shared by the movie page, For You, Recommendations, and search; For You adds personal filtering on top. With no favorites yet, For You shows popular picks *without* a match score.
+- **Movie Journeys** (`lib/journeys/`) — data-driven: journeys are definitions (franchise, genre, theme, mood, discovery) with sources (curated lists, TMDB collections/keywords/discover/people/trending), hard rules, ranking weights, and a minimum size. Franchise journeys cover every kind — shared cinematic universes (MCU, DCEU, Wizarding World, Middle-earth, Conjuring, MonsterVerse, YRF Spy, Rohit Shetty's Cop Universe, LCU, Maddock), action, superhero, sci-fi/fantasy, animated, family, comedy, horror, crime, drama/romance, Indian (Telugu, Tamil, Hindi, Malayalam, Kannada), and world cinema — using TMDB collections matched by exact, verified name, or hand-verified lists where TMDB has no single collection. The pure engine (`lib/journeys/engine.ts`) filters, scores, diversifies, orders, and hides journeys that don't meet their threshold; `services/journeys.ts` caches each journey for its freshness (hourly/daily/weekly) so dynamic journeys refresh themselves. Alternate watch orders exist only where officially documented (curated journeys).
+- **Search** (`lib/search/interpret.ts`, `services/search.ts`) — deterministic interpretation of titles, moods/genres, decades and year ranges, languages/Indian film industries, "like X" similarity, actors and directors, quality words ("underrated", "acclaimed"), and journeys. An exact title always wins; anything uninterpretable falls back to title search. No LLM.
+- **Assistant** (`components/features/assistant/`) — not LLM-backed; code-split so guests never download it. "Surprise me" picks from a genuine hidden-gem pool.
+- **Opening intro** (`components/features/intro/opening-intro.tsx`, `.nc-intro*` in `app/globals.css`) — a ~1.6s studio-title reveal of the existing wordmark on the first page load of a browsing session (a session cookie set by `proxy.ts`; never on client navigation or reloads). Pure CSS keyframes so it starts on first paint, before hydration, while the page renders underneath; skippable with a click or Enter/Esc/Space; not shown at all with `prefers-reduced-motion`.
+- **Where to Watch** (`lib/region.ts`) — India by default (`WATCH_REGION` to change); uses the platform's visitor-country header when one is present.
 
 ## Scripts
 
@@ -72,4 +84,12 @@ match was picked.
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint |
+| `npm test` | Unit tests (Node's built-in test runner via `tsx`): engine, journeys, search, auth, validation |
 | `npm run db:indexes` | Create/update MongoDB indexes on `MONGODB_URI` |
+| `npm run verify:live` | End-to-end checks against a running server (`BASE_URL`); creates throwaway accounts — point the server at a test database |
+
+## Known limitations
+
+- Rate limits are per server instance (in-memory), so they're best-effort across multiple instances.
+- The first request after a cold deploy builds the journey catalog (~5s measured locally); later requests are served from cache.
+- Landing-page testimonials, the "As imagined in" press names, and the genre/mood/decade demo are illustrative placeholders, and the Company/Legal footer links have no pages yet.

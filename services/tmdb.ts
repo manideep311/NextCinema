@@ -6,206 +6,200 @@ import type {
   TmdbCredits,
   TmdbVideosResponse,
   TmdbPaginatedResponse,
-  TmdbGenre,
+  TmdbKeyword,
   TmdbKeywordsResponse,
   TmdbWatchProvidersResponse,
+  TmdbCollection,
+  TmdbPerson,
+  TmdbPersonMovieCredits,
 } from "@/types/tmdb";
 
-/** Movies trending this week — used on the dashboard/landing page. */
-export function getTrendingMovies(page = 1) {
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/trending/movie/week", {
+// PUBLIC MOVIE DATA ONLY. Everything in this file is identical for every
+// visitor, so it is safe to share through Next's Data Cache. Nothing
+// user-specific (favorites, history, sessions) ever passes through here.
+
+/** Cache lifetimes (seconds), by how quickly each kind of TMDB data actually changes. */
+export const TMDB_CACHE = {
+  /** Trending/popular rankings shift through the day. */
+  trending: 60 * 60,
+  /** Discover/list queries (industry rails, genre and journey pools). */
+  lists: 60 * 60,
+  /** Per-movie metadata (details, credits, keywords, videos, providers) rarely changes. */
+  movie: 60 * 60 * 24,
+  /** Free-text title search — public data, but short-lived so new releases show up quickly. */
+  search: 60 * 10,
+  /** Name → id resolution (collections, keywords, people, journey titles) and filmographies. */
+  resolution: 60 * 60 * 24 * 7,
+} as const;
+
+/** Movies trending this week (landing hero, auth backdrops, Trending page, assistant). */
+export function getTrendingMovies(page = 1, window: "day" | "week" = "week") {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>(`/trending/movie/${window}`, {
     params: { page: String(page) },
-    revalidateSeconds: 3600, // trending shifts slowly enough for 1hr cache
+    revalidateSeconds: TMDB_CACHE.trending,
   });
 }
+
 export interface TmdbMovieWithExtras extends TmdbMovieDetails {
   credits: TmdbCredits;
   keywords: TmdbKeywordsResponse;
 }
 
 /**
- * Fetches details + credits + keywords in a single request via TMDB's
- * append_to_response. This is what powers MovieProfile construction —
- * both for a movie's own detail page and for building recommendation
- * candidates — without N+1 separate calls per movie.
+ * Details + credits + keywords in a single request (append_to_response).
+ * Powers MovieProfile construction for a movie's own page and for every
+ * recommendation candidate — one cached response per movie, reused by both.
  */
 export function getMovieWithExtras(movieId: number) {
   return tmdbFetch<TmdbMovieWithExtras>(`/movie/${movieId}`, {
     params: { append_to_response: "credits,keywords" },
-    revalidateSeconds: 3600,
-  });
-}
-/** Full list of official TMDB genres, used for genre filter chips. */
-export function getGenres() {
-  return tmdbFetch<{ genres: TmdbGenre[] }>("/genre/movie/list", {
-    revalidateSeconds: 86400, // genres basically never change — cache a full day
+    revalidateSeconds: TMDB_CACHE.movie,
   });
 }
 
-/** Free-text movie search, paginated. */
+/** Lean details (runtime, tagline, collection) — journeys and write-time snapshots. */
+export function getMovieDetails(movieId: number) {
+  return tmdbFetch<TmdbMovieDetails>(`/movie/${movieId}`, {
+    revalidateSeconds: TMDB_CACHE.movie,
+  });
+}
+
+/** Free-text movie title search. */
 export function searchMovies(query: string, page = 1) {
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/search/movie", {
-    params: { query, page: String(page) },
-    revalidateSeconds: 0, // search results shouldn't be stale-cached
+    params: { query, page: String(page), include_adult: "false" },
+    revalidateSeconds: TMDB_CACHE.search,
   });
 }
 
 /**
- * Same underlying endpoint as `searchMovies`, but cached for a month —
- * used to resolve Movie Journeys' static title/year definitions
- * (lib/journeys/definitions.ts) to real TMDB movies. Unlike a live search
- * box, a journey entry's identity never changes day to day, so there's no
- * reason to pay TMDB's rate limit on every request.
+ * Same endpoint as `searchMovies`, cached for a week — resolves curated
+ * journey titles to TMDB movies. A journey entry's identity doesn't change
+ * day to day, so there's no reason to spend TMDB's rate limit on it per request.
  */
 export function searchMovieForResolution(query: string) {
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/search/movie", {
-    params: { query },
-    revalidateSeconds: 2592000, // 30 days
+    params: { query, include_adult: "false" },
+    revalidateSeconds: TMDB_CACHE.resolution,
   });
 }
 
-/** Full details for a single movie's detail page. */
-export function getMovieDetails(movieId: number) {
-  return tmdbFetch<TmdbMovieDetails>(`/movie/${movieId}`, {
-    revalidateSeconds: 3600,
-  });
-}
-
-/** Cast and crew — powers the "Cast" section on the movie details page. */
-export function getMovieCredits(movieId: number) {
-  return tmdbFetch<TmdbCredits>(`/movie/${movieId}/credits`, {
-    revalidateSeconds: 3600,
-  });
-}
-
-/** Trailers/clips — filtered client-side for YouTube trailers when used. */
+/** Trailers/clips — filtered for YouTube trailers when used. */
 export function getMovieVideos(movieId: number) {
   return tmdbFetch<TmdbVideosResponse>(`/movie/${movieId}/videos`, {
-    revalidateSeconds: 3600,
+    revalidateSeconds: TMDB_CACHE.movie,
   });
 }
 
-/** Keywords — one of the inputs to our similarity-based recommendation score. */
-export function getMovieKeywords(movieId: number) {
-  return tmdbFetch<TmdbKeywordsResponse>(`/movie/${movieId}/keywords`, {
-    revalidateSeconds: 86400,
-  });
-}
-
-/** TMDB's own "similar movies" — used as a candidate pool before we re-rank with our own scoring. */
+/** TMDB's own "similar movies" — the candidate pool we re-rank with our own scoring. */
 export function getSimilarMovies(movieId: number, page = 1) {
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>(
-    `/movie/${movieId}/similar`,
-    { params: { page: String(page) }, revalidateSeconds: 3600 }
-  );
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>(`/movie/${movieId}/similar`, {
+    params: { page: String(page) },
+    revalidateSeconds: TMDB_CACHE.movie,
+  });
 }
 
-/** Currently popular movies — used for the "Trending" dashboard rail as a fallback/companion to trending. */
+/** Currently popular movies — For You cold-start fallback and the "Other" industry pool. */
 export function getPopularMovies(page = 1) {
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/movie/popular", {
     params: { page: String(page) },
-    revalidateSeconds: 3600,
+    revalidateSeconds: TMDB_CACHE.trending,
   });
 }
 
-/** TMDB's own top-rated list — powers the dashboard's "Highly Rated" rail. */
-export function getTopRatedMovies(page = 1) {
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/movie/top_rated", {
-    params: { page: String(page) },
-    revalidateSeconds: 86400,
-  });
+/** Parameters accepted by our discover wrapper — a typed subset of TMDB's /discover/movie. */
+export interface DiscoverParams {
+  with_genres?: string;
+  without_genres?: string;
+  with_keywords?: string;
+  with_original_language?: string;
+  with_origin_country?: string;
+  with_cast?: string;
+  with_crew?: string;
+  "primary_release_date.gte"?: string;
+  "primary_release_date.lte"?: string;
+  "vote_count.gte"?: string;
+  "vote_count.lte"?: string;
+  "vote_average.gte"?: string;
+  "with_runtime.gte"?: string;
+  "with_runtime.lte"?: string;
+  sort_by?: string;
+  page?: string;
 }
 
-/** Not-yet-released movies — powers the dashboard's "Upcoming" rail. */
-export function getUpcomingMovies(page = 1) {
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/movie/upcoming", {
-    params: { page: String(page) },
-    revalidateSeconds: 3600,
-  });
-}
-
-/**
- * Movies by original language, sorted by popularity — powers the
- * "Categories" page (Tollywood/Bollywood/Kollywood/Mollywood are Telugu/Hindi/Tamil/Malayalam
- * cinema respectively). TMDB has no "industry" field, so language is the
- * closest reliable proxy it exposes.
- */
-export function getMoviesByLanguage(languageCode: string, page = 1) {
+/** Generic, cached /discover/movie. Adult titles are always excluded. */
+export function discoverMovies(params: DiscoverParams, revalidateSeconds: number = TMDB_CACHE.lists) {
+  const cleaned: Record<string, string> = { include_adult: "false" };
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") cleaned[key] = value;
+  }
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
-    params: {
-      with_original_language: languageCode,
-      sort_by: "popularity.desc",
-      page: String(page),
-    },
-    revalidateSeconds: 3600,
+    params: cleaned,
+    revalidateSeconds,
   });
 }
 
+/** Movies by original language, most popular first (Categories page, Overview rails, "Other"). */
+export function getMoviesByLanguage(languageCode: string, page = 1) {
+  return discoverMovies({ with_original_language: languageCode, sort_by: "popularity.desc", page: String(page) });
+}
+
 /**
- * Same discover endpoint as `getMoviesByLanguage`, sorted by rating instead
- * of popularity, with a vote-count floor so a handful of 9/10s from a
- * barely-seen title can't outrank movies with real consensus behind them.
- * Powers the Overview's Top Rated / Hidden Gems / Under the Radar
- * industry collections (see services/discovery.ts) — never a second,
- * duplicate trending/popular system.
+ * Same discover endpoint sorted by rating, with a vote floor so a handful
+ * of 9/10s from a barely-seen title can't outrank real consensus. Powers
+ * the Overview's Top Rated / Hidden Gems / Under the Radar collections.
  */
 export function getTopRatedByLanguage(languageCode: string, page = 1) {
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
-    params: {
-      with_original_language: languageCode,
-      sort_by: "vote_average.desc",
-      "vote_count.gte": "100",
-      page: String(page),
-    },
-    revalidateSeconds: 3600,
+  return discoverMovies({
+    with_original_language: languageCode,
+    sort_by: "vote_average.desc",
+    "vote_count.gte": "100",
+    page: String(page),
   });
 }
 
-/**
- * Recently released movies for a given language, newest first — bounded to
- * `primary_release_date.lte` today so a not-yet-released title (TMDB
- * sometimes has future dates queued) never shows up as a "new release".
- * Powers the Overview's New Releases industry collection.
- */
+/** Recently released movies for a language, newest first — bounded to today so unreleased titles never appear. */
 export function getNewReleasesByLanguage(languageCode: string, page = 1) {
   const today = new Date().toISOString().slice(0, 10);
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
-    params: {
-      with_original_language: languageCode,
-      sort_by: "primary_release_date.desc",
-      "primary_release_date.lte": today,
-      "vote_count.gte": "5",
-      page: String(page),
-    },
-    revalidateSeconds: 3600,
+  return discoverMovies({
+    with_original_language: languageCode,
+    sort_by: "primary_release_date.desc",
+    "primary_release_date.lte": today,
+    "vote_count.gte": "5",
+    page: String(page),
   });
 }
 
-/**
- * Movies matching any of the given genre IDs (OR, not AND — pipe-joined
- * per TMDB's discover syntax), sorted by rating among well-voted movies.
- * Powers mood/genre search (see lib/mood-lexicon.ts) — not cached long,
- * since it's driven by free-text search input rather than a fixed rail.
- */
-export function getMoviesByGenres(genreIds: number[], page = 1) {
-  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>("/discover/movie", {
-    params: {
-      with_genres: genreIds.join("|"),
-      sort_by: "vote_average.desc",
-      "vote_count.gte": "200", // filters out obscure/low-vote noise so results are actually recognizable
-      page: String(page),
-    },
-    revalidateSeconds: 300,
-  });
-}
-
-/**
- * Streaming/rent/buy availability by country, powered by TMDB's JustWatch
- * partnership. Cached for a day since availability doesn't change minute
- * to minute — powers the movie detail page's "Where to Watch" section.
- */
+/** Streaming/rent/buy availability by country (TMDB × JustWatch). */
 export function getWatchProviders(movieId: number) {
   return tmdbFetch<TmdbWatchProvidersResponse>(`/movie/${movieId}/watch/providers`, {
-    revalidateSeconds: 86400,
+    revalidateSeconds: TMDB_CACHE.movie,
+  });
+}
+
+export function getCollection(collectionId: number) {
+  return tmdbFetch<TmdbCollection>(`/collection/${collectionId}`, {
+    revalidateSeconds: TMDB_CACHE.resolution,
+  });
+}
+
+/** Keyword search by name — resolves theme journeys ("time travel", "heist") to TMDB keyword ids at runtime. */
+export function searchKeywords(query: string) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbKeyword>>("/search/keyword", {
+    params: { query },
+    revalidateSeconds: TMDB_CACHE.resolution,
+  });
+}
+
+export function searchPeople(query: string) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbPerson>>("/search/person", {
+    params: { query, include_adult: "false" },
+    revalidateSeconds: TMDB_CACHE.resolution,
+  });
+}
+
+export function getPersonMovieCredits(personId: number) {
+  return tmdbFetch<TmdbPersonMovieCredits>(`/person/${personId}/movie_credits`, {
+    revalidateSeconds: TMDB_CACHE.resolution,
   });
 }

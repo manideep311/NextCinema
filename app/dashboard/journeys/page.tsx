@@ -1,5 +1,5 @@
 import { getSession } from "@/lib/auth/session";
-import { listJourneyDefs, getJourneyCardPreview } from "@/services/journeys";
+import { listJourneyCards } from "@/services/journeys";
 import { JourneyGrid } from "@/components/features/journeys/journey-grid";
 import { FadeIn } from "@/components/motion/fade-in";
 
@@ -9,11 +9,9 @@ export const metadata = {
 
 export default async function JourneysPage() {
   const session = await getSession();
-  const userId = session?.userId ?? null;
-
-  const journeys = await Promise.all(
-    listJourneyDefs().map((journey) => getJourneyCardPreview(journey, userId))
-  );
+  // Every journey that currently meets its quality threshold (cached catalog)
+  // + this user's watched counts from a single query.
+  const journeys = await listJourneyCards(session?.userId ?? null);
 
   return (
     <div>

@@ -1,57 +1,52 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { readFromStorage, writeToStorage } from "@/lib/local-storage";
+import { readFromStorage, userScopedKey, writeToStorage } from "@/lib/local-storage";
 import { useAuth } from "@/components/providers/auth-provider";
 
-const KEY = "cinematch:recent-searches";
 const MAX_SEARCHES = 8;
 
-/** Account-only: recent searches aren't stored or shown for guests. */
+/**
+ * Account-only recent searches, stored in Local Storage under a key scoped
+ * to the signed-in user's id — so on a shared browser one account never
+ * sees another's searches — and cleared on sign-out (see AuthProvider).
+ */
 export function useRecentSearches() {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [searches, setSearches] = useState<string[]>([]);
 
   useEffect(() => {
-    // Local Storage is a browser-only API, so this can't be read during
-    // the lazy useState initializer (that also runs on the server, where
-    // there's no `window` — reading it there would mean a mismatched
-    // first client render instead of a clean post-hydration update).
-    // Deferring the read into a microtask keeps it inside the effect
-    // (still only ever runs client-side, still reruns whenever `user`
-    // changes) while ensuring the actual state update happens from an
-    // async continuation rather than synchronously in the effect body.
+    // Local Storage is browser-only, so it's read after hydration (deferred
+    // to a microtask to keep the state update out of the effect body).
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setSearches(user ? readFromStorage<string[]>(KEY) ?? [] : []);
+      setSearches(userId ? readFromStorage<string[]>(userScopedKey("recent-searches", userId)) ?? [] : []);
     });
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId]);
 
   const addSearch = useCallback(
     (query: string) => {
-      if (!user) return;
-      const trimmed = query.trim();
+      if (!userId) return;
+      const trimmed = query.trim().slice(0, 100);
       if (!trimmed) return;
       setSearches((current) => {
-        const next = [trimmed, ...current.filter((q) => q.toLowerCase() !== trimmed.toLowerCase())].slice(
-          0,
-          MAX_SEARCHES
-        );
-        writeToStorage(KEY, next);
+        const next = [trimmed, ...current.filter((q) => q.toLowerCase() !== trimmed.toLowerCase())].slice(0, MAX_SEARCHES);
+        writeToStorage(userScopedKey("recent-searches", userId), next);
         return next;
       });
     },
-    [user]
+    [userId]
   );
 
   const clearSearches = useCallback(() => {
     setSearches([]);
-    writeToStorage(KEY, []);
-  }, []);
+    if (userId) writeToStorage(userScopedKey("recent-searches", userId), []);
+  }, [userId]);
 
   return { searches, addSearch, clearSearches };
 }

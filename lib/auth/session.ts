@@ -1,68 +1,63 @@
 import "server-only";
-import { SignJWT, jwtVerify } from "jose";
+import { cache } from "react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import type { NextRequest, NextResponse } from "next/server";
+import {
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  signSessionToken,
+  verifySessionToken,
+  type SessionPayload,
+  type VerifiedSession,
+} from "@/lib/auth/token";
+import { jsonError, PRIVATE_NO_STORE } from "@/lib/http";
 
-export const SESSION_COOKIE = "cinematch_session";
-const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 days
+export { SESSION_COOKIE };
+export type { SessionPayload, VerifiedSession };
 
-export interface SessionPayload {
-  userId: string;
-  email: string;
-  name: string;
-  role: "user" | "premium" | "admin";
-}
-
-function getSecretKey() {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error(
-      "AUTH_SECRET is not set. Add a long random string to .env.local — see README.md."
-    );
-  }
-  return new TextEncoder().encode(secret);
-}
-
-/** Signs a session JWT — payload is intentionally small (just enough to render UI without a DB hit). */
-export async function createSessionToken(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_DURATION_SECONDS}s`)
-    .sign(getSecretKey());
-}
-
-/** Verifies a session JWT, returning null (never throwing) on any invalid/expired/tampered token. */
-export async function verifySessionToken(token: string): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, getSecretKey());
-    return payload as unknown as SessionPayload;
-  } catch {
-    return null;
-  }
-}
-
-/** Sets the session cookie on the current response — call from a Server Action or Route Handler. */
-export async function setSessionCookie(payload: SessionPayload) {
-  const token = await createSessionToken(payload);
+/**
+ * The verified session for the current Server Component render, or null.
+ * Wrapped in React `cache` so the root layout, dashboard layout, page, and
+ * any nested server components share one cookie read + signature check per
+ * request instead of repeating it at every call site.
+ */
+export const getSession = cache(async (): Promise<VerifiedSession | null> => {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_DURATION_SECONDS,
-  });
+  return verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+});
+
+/** Server Component/page gate: redirects to login (returning here afterwards) when signed out. */
+export async function requirePageSession(returnTo: string): Promise<VerifiedSession> {
+  const session = await getSession();
+  if (!session) redirect(`/login?redirect=${encodeURIComponent(returnTo)}`);
+  return session;
 }
 
-export async function clearSessionCookie() {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE);
+/** Route Handler variant — reads the cookie straight off the request. */
+export function getRequestSession(request: NextRequest): Promise<VerifiedSession | null> {
+  return verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
 }
 
-/** Reads + verifies the session cookie for the current request. Returns null if signed out. */
-export async function getSession(): Promise<SessionPayload | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
-  return verifySessionToken(token);
+/**
+ * The first step of every user-scoped API route:
+ *   request → verify session → derive identity → (caller authorizes + acts)
+ * The user id used for every subsequent query comes from here — never from
+ * a body, query string, or path parameter.
+ */
+export async function requireRequestSession(
+  request: NextRequest
+): Promise<{ session: VerifiedSession; response?: undefined } | { session?: undefined; response: NextResponse }> {
+  const session = await getRequestSession(request);
+  if (!session) return { response: jsonError(401, "Sign in to continue.", PRIVATE_NO_STORE) };
+  return { session };
+}
+
+export async function attachSessionCookie(response: NextResponse, payload: SessionPayload): Promise<void> {
+  const token = await signSessionToken(payload);
+  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+}
+
+export function clearSessionCookie(response: NextResponse): void {
+  response.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
 }

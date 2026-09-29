@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, Play, Film } from "lucide-react";
 import type { ResolvedJourneyMovie } from "@/types/journey";
 import { WatchlistButton } from "@/components/features/movies/watchlist-button";
+import { WatchedButton } from "@/components/features/journeys/watched-button";
 import { modalVariants, modalTransition } from "@/components/motion/motion-config";
 
 const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
@@ -18,6 +19,7 @@ function formatRuntime(minutes: number | null): string | null {
 }
 
 interface JourneyMovieInspectorProps {
+  journeyId: string;
   movie: ResolvedJourneyMovie | null;
   position: number;
   totalInOrder: number;
@@ -30,9 +32,10 @@ interface JourneyMovieInspectorProps {
  * Lets the user look at a movie from the track without leaving the
  * journey — clicking a poster opens this instead of navigating straight
  * to the movie page. "View Movie" / "Watch Next" (whichever applies) is
- * the only way this panel actually navigates away.
+ * the only way this panel actually navigates away. "Mark as Watched" is
+ * the explicit progress action — viewing a movie never counts as watching it.
  */
-export function JourneyMovieInspector({ movie, position, totalInOrder, orderLabel, isNextMovie, onClose }: JourneyMovieInspectorProps) {
+export function JourneyMovieInspector({ journeyId, movie, position, totalInOrder, orderLabel, isNextMovie, onClose }: JourneyMovieInspectorProps) {
   const runtime = movie ? formatRuntime(movie.runtime) : null;
   const description = movie?.overview || movie?.tagline || null;
 
@@ -130,6 +133,8 @@ export function JourneyMovieInspector({ movie, position, totalInOrder, orderLabe
                   <Play className="size-3.5 fill-current" /> {isNextMovie ? "Watch Next" : "View Movie"}
                 </Link>
               )}
+
+              {movie.id && <WatchedButton key={movie.id} movieId={movie.id} journeyId={journeyId} isWatched={movie.state === "watched"} />}
 
               {movie.id && (
                 <WatchlistButton

@@ -1,38 +1,28 @@
-import { NextResponse } from "next/server";
-import { searchMovies, getMoviesByGenres } from "@/services/tmdb";
-import { detectGenresFromQuery } from "@/lib/mood-lexicon";
-import type { TmdbMovie } from "@/types/tmdb";
+import { NextResponse, type NextRequest } from "next/server";
+import { enforceRateLimit, jsonError } from "@/lib/http";
+import { searchQuerySchema } from "@/lib/validation";
+import { runSearch } from "@/services/search";
 
-function toCardMovie(movie: TmdbMovie) {
-  return {
-    id: movie.id,
-    title: movie.title,
-    posterPath: movie.poster_path,
-    voteAverage: movie.vote_average,
-    releaseYear: movie.release_date ? movie.release_date.slice(0, 4) : null,
-  };
-}
+/**
+ * Deterministic search (title, mood/genre, decade, language, similarity,
+ * person, franchise journeys — see lib/search/interpret.ts). Public and
+ * guest-accessible; rate-limited per IP; query length is bounded.
+ */
+export async function GET(request: NextRequest) {
+  const limited = enforceRateLimit(request, "search");
+  if (limited) return limited;
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q")?.trim() ?? "";
-
-  if (query.length < 2) {
-    return NextResponse.json({ results: [], mode: "title" });
+  const raw = request.nextUrl.searchParams.get("q") ?? "";
+  if (raw.trim().length < 2) {
+    return NextResponse.json({ results: [], mode: "title", label: null, journeys: [] });
   }
+  const parsed = searchQuerySchema.safeParse(raw);
+  if (!parsed.success) return jsonError(400, parsed.error.issues[0]?.message ?? "Invalid search query.");
 
-  // Mood/genre search takes priority when the query reads like a vibe
-  // ("mind-blowing plot twists") rather than a title — a plain title
-  // search for that phrase would return nothing useful. Titles that
-  // happen to contain a mood word (rare) just fall through to the same
-  // title search everything else uses.
-  const genreIds = detectGenresFromQuery(query);
-
-  if (genreIds.length > 0) {
-    const data = await getMoviesByGenres(genreIds);
-    return NextResponse.json({ results: data.results.map(toCardMovie), mode: "mood" });
+  try {
+    const response = await runSearch(parsed.data);
+    return NextResponse.json(response, { headers: { "Cache-Control": "public, max-age=60, stale-while-revalidate=300" } });
+  } catch {
+    return jsonError(502, "Search is unavailable right now — please try again.");
   }
-
-  const data = await searchMovies(query);
-  return NextResponse.json({ results: data.results.map(toCardMovie), mode: "title" });
 }

@@ -11,7 +11,8 @@ import type { MovieProfile, RecommendationReason } from "@/types/movie";
 
 type CardMovie = Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
 interface RecommendedMovie extends CardMovie {
-  matchScore: number;
+  /** Null for cold-start (popular) picks — popularity is never shown as a match score. */
+  matchScore: number | null;
   reasons: RecommendationReason[];
 }
 
@@ -37,6 +38,25 @@ interface AssistantPanelProps {
 
 const GREETING = randomLine(GREETING_LINES);
 
+// "What's trending" results are reused for a few minutes instead of being
+// refetched on every click; the server side is cached too (TMDB data cache).
+const TRENDING_CLIENT_TTL_MS = 5 * 60_000;
+let trendingCache: { movies: CardMovie[]; fetchedAt: number } | null = null;
+
+async function fetchJson(url: string) {
+  const res = await fetch(url);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
+  return data;
+}
+
+async function getTrending(): Promise<CardMovie[]> {
+  if (trendingCache && Date.now() - trendingCache.fetchedAt < TRENDING_CLIENT_TTL_MS) return trendingCache.movies;
+  const data = await fetchJson("/api/movies/trending");
+  trendingCache = { movies: data.movies ?? [], fetchedAt: Date.now() };
+  return trendingCache.movies;
+}
+
 export function AssistantPanel({ onClose, onThinkingChange, onOpenPuzzle }: AssistantPanelProps) {
   const [screen, setScreen] = useState<Screen>({ kind: "idle" });
 
@@ -46,25 +66,20 @@ export function AssistantPanel({ onClose, onThinkingChange, onOpenPuzzle }: Assi
 
     try {
       if (action === "recommend") {
-        const res = await fetch("/api/recommendations/for-you", { cache: "no-store" });
-        const data = await res.json();
+        // Only the top pick is shown, so only one is requested (the scoring itself is cached server-side).
+        const data = await fetchJson("/api/recommendations/for-you?limit=1");
         const top = data.movies?.[0];
         if (!top) throw new Error("No recommendation available yet.");
         setScreen({ kind: "recommend", basedOnTitle: data.basedOnTitle ?? null, movie: top });
       } else if (action === "trending") {
-        const res = await fetch("/api/movies/trending", { cache: "no-store" });
-        const data = await res.json();
-        setScreen({ kind: "trending", movies: data.movies ?? [] });
+        setScreen({ kind: "trending", movies: await getTrending() });
       } else if (action === "surprise") {
-        const res = await fetch("/api/movies/trending", { cache: "no-store" });
-        const data = await res.json();
-        const pool: CardMovie[] = data.movies ?? [];
-        const pick = pool[Math.floor(Math.random() * pool.length)];
-        if (!pick) throw new Error("Nothing in the catalog right now.");
-        setScreen({ kind: "surprise", movie: pick });
+        // A random pick from a genuine hidden-gem pool (well rated, small audience), picked server-side.
+        const data = await fetchJson("/api/movies/surprise");
+        if (!data.movie) throw new Error("Nothing to suggest right now.");
+        setScreen({ kind: "surprise", movie: data.movie });
       } else if (action === "search" && query) {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { cache: "no-store" });
-        const data = await res.json();
+        const data = await fetchJson(`/api/search?q=${encodeURIComponent(query)}`);
         setScreen({ kind: "search", query, movies: data.results ?? [] });
       }
     } catch (error) {
@@ -115,7 +130,7 @@ export function AssistantPanel({ onClose, onThinkingChange, onOpenPuzzle }: Assi
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-medium">Movie break?</p>
-                    <p className="text-xs text-muted mb-2.5">Test your movie knowledge.</p>
+                    <p className="text-xs text-muted mb-2.5">Rebuild a scrambled movie poster.</p>
                     <button
                       onClick={onOpenPuzzle}
                       className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
@@ -152,8 +167,13 @@ export function AssistantPanel({ onClose, onThinkingChange, onOpenPuzzle }: Assi
               </p>
               <SpotlightCard
                 movie={screen.movie}
-                badge={`${screen.movie.matchScore}% match`}
-                caption={screen.movie.reasons[0]?.label ?? `Recommendation confidence: ${screen.movie.matchScore}%.`}
+                badge={screen.movie.matchScore !== null ? `${screen.movie.matchScore}% match` : screen.movie.voteAverage.toFixed(1)}
+                caption={
+                  screen.movie.reasons[0]?.label ??
+                  (screen.movie.matchScore !== null
+                    ? `Similarity to your latest favorite: ${screen.movie.matchScore}%.`
+                    : "Popular right now — favorite a movie to get personalized picks.")
+                }
               />
               <BackButton onClick={() => setScreen({ kind: "idle" })} />
             </motion.div>
@@ -165,7 +185,7 @@ export function AssistantPanel({ onClose, onThinkingChange, onOpenPuzzle }: Assi
               <SpotlightCard
                 movie={screen.movie}
                 badge={screen.movie.voteAverage.toFixed(1)}
-                caption="Pulled from this week's trending catalog."
+                caption="Highly rated on TMDB, but seen by relatively few people."
               />
               <BackButton onClick={() => setScreen({ kind: "idle" })} />
             </motion.div>

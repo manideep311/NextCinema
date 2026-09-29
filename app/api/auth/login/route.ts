@@ -1,30 +1,33 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { authenticateUser } from "@/services/auth";
-import { setSessionCookie } from "@/lib/auth/session";
+import { NextResponse, type NextRequest } from "next/server";
+import { authenticateUser, InvalidCredentialsError } from "@/services/auth";
+import { attachSessionCookie } from "@/lib/auth/session";
+import { loginSchema } from "@/lib/auth/schemas";
+import { enforceRateLimit, getClientIp, jsonError, parseJsonBody, PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 
-const loginSchema = z.object({
-  email: z.string().trim().email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
+export async function POST(request: NextRequest) {
+  const crossSite = rejectCrossSite(request);
+  if (crossSite) return crossSite;
 
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  const parsed = loginSchema.safeParse(body);
+  const limited = enforceRateLimit(request, "auth:login");
+  if (limited) return limited;
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
+  const body = await parseJsonBody(request, loginSchema);
+  if (!body.ok) return body.response;
+
+  // Second, tighter bucket per (IP, email) so one account can't be guessed at from one address.
+  const perAccount = enforceRateLimit(request, "auth:login-account", `${getClientIp(request)}|${body.data.email}`);
+  if (perAccount) return perAccount;
 
   try {
-    const user = await authenticateUser(parsed.data.email, parsed.data.password);
-    await setSessionCookie({ userId: user.id, email: user.email, name: user.name, role: user.role });
-    return NextResponse.json({ user });
+    const user = await authenticateUser(body.data.email, body.data.password);
+    const response = NextResponse.json({ user }, { headers: PRIVATE_NO_STORE });
+    await attachSessionCookie(response, { userId: user.id, email: user.email, name: user.name, role: user.role });
+    return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not sign in.";
-    return NextResponse.json({ error: message }, { status: 401 });
+    if (error instanceof InvalidCredentialsError) {
+      return jsonError(401, error.message, PRIVATE_NO_STORE);
+    }
+    // Never echo internal errors (or anything derived from the credentials) to the client.
+    return jsonError(500, "Could not sign in right now — please try again.", PRIVATE_NO_STORE);
   }
 }

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Heart, Bookmark, Clock, Mail, Shield } from "lucide-react";
-import { getSession } from "@/lib/auth/session";
-import { listFavorites } from "@/services/favorites";
-import { listWatchlist } from "@/services/watchlist";
-import { listWatchHistory } from "@/services/watch-history";
+import { requirePageSession } from "@/lib/auth/session";
+import { countFavorites } from "@/services/favorites";
+import { countWatchlist } from "@/services/watchlist";
+import { countWatchHistory } from "@/services/watch-history";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -21,16 +20,16 @@ const STAT_CARDS = [
 ] as const;
 
 export default async function ProfilePage() {
-  const session = await getSession();
-  if (!session) redirect("/login?redirect=/dashboard/profile");
+  // Identity comes from the verified session only — this page can only ever show its own user.
+  const session = await requirePageSession("/dashboard/profile");
 
+  // Index-backed counts — no need to fetch every document just to count them.
   const [favorites, watchlist, history] = await Promise.all([
-    listFavorites(session.userId),
-    listWatchlist(session.userId),
-    listWatchHistory(session.userId),
+    countFavorites(session.userId),
+    countWatchlist(session.userId),
+    countWatchHistory(session.userId),
   ]);
-
-  const counts = { favorites: favorites.length, watchlist: watchlist.length, history: history.length };
+  const counts = { favorites, watchlist, history };
 
   return (
     <div className="max-w-3xl">

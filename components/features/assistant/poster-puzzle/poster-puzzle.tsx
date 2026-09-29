@@ -136,7 +136,7 @@ export function PosterPuzzle({ open, onClose }: PosterPuzzleProps) {
                       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
                       className="absolute inset-0"
                     >
-                      <Image src={posterUrl} alt={game.movie.title} fill sizes="240px" className="object-cover" />
+                      <Image src={posterUrl} alt={game.movie.title} fill sizes="240px" className="object-cover" unoptimized />
                     </motion.div>
                     {!reducedMotion && (
                       <motion.div

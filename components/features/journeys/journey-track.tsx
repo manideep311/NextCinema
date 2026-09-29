@@ -105,7 +105,6 @@ export function JourneyTrack({ movies, onSelect }: JourneyTrackProps) {
     const container = scrollRef.current;
     if (!container) return;
     dragState.current = { startX: e.clientX, startScroll: container.scrollLeft, dragging: false };
-    container.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: React.PointerEvent) {
@@ -113,8 +112,14 @@ export function JourneyTrack({ movies, onSelect }: JourneyTrackProps) {
     const container = scrollRef.current;
     if (!drag || !container) return;
     const delta = e.clientX - drag.startX;
-    if (Math.abs(delta) > 4) drag.dragging = true;
-    container.scrollLeft = drag.startScroll - delta;
+    if (!drag.dragging && Math.abs(delta) > 4) {
+      drag.dragging = true;
+      // Capture only once a real drag starts: capturing on pointerdown made
+      // the browser retarget the follow-up click to the container, so a
+      // plain click on a poster never opened the movie popup.
+      container.setPointerCapture(e.pointerId);
+    }
+    if (drag.dragging) container.scrollLeft = drag.startScroll - delta;
   }
 
   function handlePointerUp() {

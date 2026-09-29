@@ -1,20 +1,46 @@
 "use client";
 
+import { useEffect, useSyncExternalStore } from "react";
 import { Search } from "lucide-react";
 import { useCommandPalette } from "@/components/providers/command-palette-provider";
+import { greetingForHour, TIMEZONE_COOKIE } from "@/lib/time-of-day";
 
 interface OverviewHeroProps {
-  greeting: string;
+  /** Signed-in user's first name, or null for guests. */
+  firstName: string | null;
+  /** Hour the server computed (from the viewer's saved time zone when known) — used for the first paint only. */
+  serverHour: number;
+}
+
+function subscribeToClock(onChange: () => void) {
+  const id = setInterval(onChange, 60_000);
+  return () => clearInterval(id);
 }
 
 /**
  * Restrained hero for the Overview — a greeting, one line of framing copy,
- * and a search entry point. The search field itself opens the existing
- * ⌘K command palette rather than reimplementing search inline, so there's
- * exactly one search experience in the app, not two.
+ * and a search entry point. The search field opens the existing ⌘K
+ * palette, so there's exactly one search experience in the app.
+ *
+ * The greeting follows the *viewer's* clock, not the server's: the server
+ * renders with the viewer's saved time zone (cookie) when it has one, and
+ * `useSyncExternalStore` switches to the browser's local hour right after
+ * hydration without a hydration mismatch. The time zone is then saved so
+ * the next server render is already correct.
  */
-export function OverviewHero({ greeting }: OverviewHeroProps) {
+export function OverviewHero({ firstName, serverHour }: OverviewHeroProps) {
   const { open } = useCommandPalette();
+  const hour = useSyncExternalStore(subscribeToClock, () => new Date().getHours(), () => serverHour);
+  const greeting = `${greetingForHour(hour)}${firstName ? `, ${firstName}` : ""}.`;
+
+  useEffect(() => {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timeZone) return;
+    const current = document.cookie.split("; ").find((entry) => entry.startsWith(`${TIMEZONE_COOKIE}=`));
+    if (current !== `${TIMEZONE_COOKIE}=${encodeURIComponent(timeZone)}`) {
+      document.cookie = `${TIMEZONE_COOKIE}=${encodeURIComponent(timeZone)}; path=/; max-age=31536000; samesite=lax`;
+    }
+  }, []);
 
   return (
     <div className="mb-10">

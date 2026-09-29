@@ -1,31 +1,26 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { INDUSTRIES, isPrimaryIndustryId } from "@/lib/industries";
 import { getIndustryCollections } from "@/services/discovery";
+import { enforceRateLimit, jsonError } from "@/lib/http";
 
 /**
  * Powers the Overview's industry collections (Hidden Gems, Top Rated,
  * Trending Now, Under the Radar, New Releases). One request per industry
- * switch — never all five industries at once — and the derivation logic
- * lives once in services/discovery.ts rather than being duplicated across
- * components.
+ * switch, and only for the five industries the selector offers.
  */
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const requested = searchParams.get("industry");
+export async function GET(request: NextRequest) {
+  const limited = enforceRateLimit(request, "tmdb-proxy");
+  if (limited) return limited;
 
-  // Never trust client input directly — only ever resolve against the five
-  // industries the Overview's selector actually offers.
-  if (!isPrimaryIndustryId(requested)) {
-    return NextResponse.json({ error: "Unknown industry" }, { status: 400 });
-  }
+  const requested = request.nextUrl.searchParams.get("industry");
+  if (!isPrimaryIndustryId(requested)) return jsonError(400, "Unknown industry.");
 
   const config = INDUSTRIES.find((industry) => industry.id === requested);
-  if (!config?.language) {
-    // Defense in depth — every PRIMARY_INDUSTRY_ID is guaranteed to have a
-    // language in lib/industries.ts, so this should be unreachable.
-    return NextResponse.json({ error: "Unknown industry" }, { status: 400 });
-  }
+  if (!config?.language) return jsonError(400, "Unknown industry.");
 
   const collections = await getIndustryCollections(config.language);
-  return NextResponse.json({ industry: requested, collections });
+  return NextResponse.json(
+    { industry: requested, collections },
+    { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } }
+  );
 }

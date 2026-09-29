@@ -1,10 +1,13 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { getMovieWithExtras, getSimilarMovies, getMovieVideos, getWatchProviders } from "@/services/tmdb";
+import { headers } from "next/headers";
+import { getMovieWithExtras, getMovieVideos, getWatchProviders } from "@/services/tmdb";
+import { getRecommendationsForMovie } from "@/services/recommendations";
+import { findJourneyForMovie, getJourneyDetail } from "@/services/journeys";
 import { mapExtrasToProfile } from "@/lib/movie-mapper";
-import { recommendMovies } from "@/lib/recommendation-engine";
 import { getSession } from "@/lib/auth/session";
-import { findJourneyByTitle } from "@/lib/journeys/definitions";
-import { getJourneyDetail } from "@/services/journeys";
+import { movieIdParamSchema } from "@/lib/validation";
+import { resolveWatchRegion } from "@/lib/region";
 import { MovieHero } from "@/components/features/movie-details/movie-hero";
 import { CastList } from "@/components/features/movie-details/cast-list";
 import { TrailerEmbed } from "@/components/features/movie-details/trailer-embed";
@@ -16,79 +19,82 @@ import { WatchProviders, hasWatchProviders } from "@/components/features/movie-d
 import { RecordView } from "@/components/features/movie-details/record-view";
 import { MovieDetailContinueJourney } from "@/components/features/journeys/continue-journey";
 import { TmdbApiError } from "@/lib/tmdb-client";
+import type { TmdbMovieWithExtras } from "@/services/tmdb";
 
 interface MovieDetailsPageProps {
   params: Promise<{ id: string }>;
 }
 
-const MAX_SIMILAR_CANDIDATES = 12;
 const SIMILAR_MOVIES_COUNT = 5;
 
-export default async function MovieDetailsPage({ params }: MovieDetailsPageProps) {
-  const { id } = await params;
-  const movieId = Number(id);
-
-  if (!Number.isInteger(movieId) || movieId <= 0) {
-    notFound();
-  }
-
-  let movieData;
-  try {
-    movieData = await getMovieWithExtras(movieId);
-  } catch (error) {
-    if (error instanceof TmdbApiError && error.status === 404) {
-      notFound();
-    }
-    throw error;
-  }
-
-  const profile = mapExtrasToProfile(movieData);
-  // Pure title match, no I/O — see lib/journeys/definitions.ts. Only when
-  // this movie actually belongs to a known journey do we pay for
-  // resolving that journey's movies below.
-  const journeyDef = findJourneyByTitle(profile.title);
-
-  // Everything below is secondary content — trailer, similar movies, watch
-  // providers, journey position — none of it should be able to take down
-  // the whole page if TMDB (or Mongo, for journey progress) drops a
-  // connection. Each one degrades to an empty/null result instead of throwing.
-  const [similarPage, videosResponse, watchProviders, journeyDetail] = await Promise.all([
-    getSimilarMovies(movieId).catch(() => ({ page: 1, results: [], total_pages: 0, total_results: 0 })),
-    getMovieVideos(movieId).catch(() => ({ results: [] })),
-    getWatchProviders(movieId).catch(() => null),
-    journeyDef
-      ? getSession()
-          .then((session) => getJourneyDetail(journeyDef, "release", session?.userId ?? null))
-          .catch(() => null)
-      : Promise.resolve(null),
-  ]);
-  const watchRegion = watchProviders?.results?.IN;
-
-  // Fetching full profiles for up to a dozen similar-movie candidates is
-  // the single biggest source of concurrent TMDB requests on this page —
-  // allSettled means one or two dropped connections just shrink the
-  // candidate pool instead of 500ing the entire page.
-  const candidateResults = await Promise.allSettled(
-    similarPage.results
-      .slice(0, MAX_SIMILAR_CANDIDATES)
-      .map((m) => getMovieWithExtras(m.id).then(mapExtrasToProfile))
-  );
-  const candidateProfiles = candidateResults
-    .filter((r): r is PromiseFulfilledResult<ReturnType<typeof mapExtrasToProfile>> => r.status === "fulfilled")
-    .map((r) => r.value);
-  const similarMovies = recommendMovies(profile, candidateProfiles, SIMILAR_MOVIES_COUNT);
+/** Streams in after the main content: ranked + explained, from the shared per-movie recommendation cache. */
+async function SimilarMoviesSection({ movieId }: { movieId: number }) {
+  const recommendations = await getRecommendationsForMovie(movieId).catch(() => []);
+  const similar = recommendations.slice(0, SIMILAR_MOVIES_COUNT);
+  if (similar.length === 0) return null;
 
   return (
     <div>
-      <RecordView
-        movie={{
-          id: profile.id,
-          title: profile.title,
-          posterPath: profile.posterPath,
-          voteAverage: profile.voteAverage,
-          releaseYear: profile.releaseYear,
-        }}
-      />
+      <h2 className="font-serif text-xl mb-3">Similar Movies</h2>
+      <p className="text-muted text-sm mb-4">Ranked and explained by NextCinema, not just TMDB&apos;s raw list.</p>
+      <SimilarMovies recommendations={similar} />
+    </div>
+  );
+}
+
+/** The franchise journey this movie belongs to, if any — streamed so it never delays the page. */
+async function JourneySection({ movie }: { movie: TmdbMovieWithExtras }) {
+  const journey = await findJourneyForMovie({
+    id: movie.id,
+    title: movie.title,
+    collectionId: movie.belongs_to_collection?.id ?? null,
+    collectionName: movie.belongs_to_collection?.name ?? null,
+    keywords: movie.keywords.keywords.map((keyword) => keyword.name),
+  }).catch(() => null);
+  if (!journey) return null;
+
+  const session = await getSession();
+  const detail = await getJourneyDetail(journey.id, "release", session?.userId ?? null).catch(() => null);
+  if (!detail) return null;
+
+  return (
+    <MovieDetailContinueJourney
+      journeyId={detail.id}
+      journeyName={detail.name}
+      movies={detail.releaseOrderMovies}
+      currentMovieId={movie.id}
+    />
+  );
+}
+
+export default async function MovieDetailsPage({ params }: MovieDetailsPageProps) {
+  const { id } = await params;
+  const parsedId = movieIdParamSchema.safeParse(id);
+  if (!parsedId.success) notFound();
+  const movieId = parsedId.data;
+
+  let movieData: TmdbMovieWithExtras;
+  try {
+    movieData = await getMovieWithExtras(movieId);
+  } catch (error) {
+    if (error instanceof TmdbApiError && error.status === 404) notFound();
+    throw error;
+  }
+  if (movieData.adult) notFound();
+
+  const profile = mapExtrasToProfile(movieData);
+
+  // Secondary content degrades to "nothing" instead of failing the page if TMDB drops a connection.
+  const [videosResponse, watchProviders, requestHeaders] = await Promise.all([
+    getMovieVideos(movieId).catch(() => ({ results: [] })),
+    getWatchProviders(movieId).catch(() => null),
+    headers(),
+  ]);
+  const watchRegion = watchProviders?.results?.[resolveWatchRegion(requestHeaders)];
+
+  return (
+    <div>
+      <RecordView movieId={profile.id} />
 
       <MovieHero
         movie={profile}
@@ -98,14 +104,9 @@ export default async function MovieDetailsPage({ params }: MovieDetailsPageProps
       />
 
       <div className="px-4 md:px-8 space-y-14 max-w-5xl">
-        {journeyDetail && (
-          <MovieDetailContinueJourney
-            journeyId={journeyDetail.id}
-            journeyName={journeyDetail.name}
-            movies={journeyDetail.releaseOrderMovies}
-            currentMovieId={profile.id}
-          />
-        )}
+        <Suspense fallback={null}>
+          <JourneySection movie={movieData} />
+        </Suspense>
 
         {hasWatchProviders(watchRegion) && (
           <div>
@@ -153,13 +154,9 @@ export default async function MovieDetailsPage({ params }: MovieDetailsPageProps
           </div>
         )}
 
-        {similarMovies.length > 0 && (
-          <div>
-            <h2 className="font-serif text-xl mb-3">Similar Movies</h2>
-            <p className="text-muted text-sm mb-4">Ranked and explained by NextCinema, not just TMDB&apos;s raw list.</p>
-            <SimilarMovies recommendations={similarMovies} />
-          </div>
-        )}
+        <Suspense fallback={null}>
+          <SimilarMoviesSection movieId={movieId} />
+        </Suspense>
       </div>
     </div>
   );

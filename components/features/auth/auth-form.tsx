@@ -6,6 +6,8 @@ import Link from "next/link";
 import { Loader2, Mail, Lock, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/providers/auth-provider";
+import { sanitizeRedirect } from "@/lib/auth/redirect";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/auth/password-policy";
 
 interface AuthFormProps {
   mode: "login" | "signup";
@@ -18,8 +20,11 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
-  // Sent here from a guest action (e.g. "add to watchlist") — after auth, return them right where they were.
-  const redirectTo = searchParams.get("redirect") || "/dashboard";
+  // Sent here from a guest action (e.g. "add to watchlist") — after auth, return them right where they
+  // were. Sanitized to same-site paths only, so a crafted link can't bounce users off-site after login.
+  const rawRedirect = searchParams.get("redirect");
+  const redirectTo = sanitizeRedirect(rawRedirect);
+  const carriedRedirect = rawRedirect ? `?redirect=${encodeURIComponent(redirectTo)}` : "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,6 +67,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           <input
             type="text"
             required
+            maxLength={80}
             placeholder="Full name"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -75,6 +81,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <input
           type="email"
           required
+          maxLength={254}
           placeholder="Email address"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -87,8 +94,9 @@ export function AuthForm({ mode }: AuthFormProps) {
         <input
           type="password"
           required
-          minLength={mode === "signup" ? 8 : undefined}
-          placeholder={mode === "signup" ? "Password (min. 8 characters)" : "Password"}
+          minLength={mode === "signup" ? PASSWORD_MIN_LENGTH : undefined}
+          maxLength={PASSWORD_MAX_LENGTH}
+          placeholder={mode === "signup" ? `Password (min. ${PASSWORD_MIN_LENGTH} characters)` : "Password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={inputClass}
@@ -120,14 +128,14 @@ export function AuthForm({ mode }: AuthFormProps) {
         {mode === "login" ? (
           <>
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-accent hover:underline">
+            <Link href={`/signup${carriedRedirect}`} className="text-accent hover:underline">
               Sign up
             </Link>
           </>
         ) : (
           <>
             Already have an account?{" "}
-            <Link href="/login" className="text-accent hover:underline">
+            <Link href={`/login${carriedRedirect}`} className="text-accent hover:underline">
               Sign in
             </Link>
           </>

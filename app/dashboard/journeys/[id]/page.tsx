@@ -1,36 +1,30 @@
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
-import { getJourneyDef } from "@/lib/journeys/definitions";
 import { getJourneyDetail } from "@/services/journeys";
 import { JourneyExperience } from "@/components/features/journeys/journey-experience";
-import type { JourneyOrderType } from "@/types/journey";
+import { journeyIdSchema, journeyOrderSchema } from "@/lib/validation";
 
 interface JourneyDetailPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{ order?: string | string[] }>;
 }
 
-const VALID_ORDERS: JourneyOrderType[] = ["release", "chronological", "essential"];
-
-// Data fetching only — unchanged from before this redesign. All movie
-// resolution, watched-state, and ordering logic still lives in
-// services/journeys.ts; this page just hands the result to the client
-// experience that presents it.
 export default async function JourneyDetailPage({ params, searchParams }: JourneyDetailPageProps) {
-  const { id } = await params;
-  const { order } = await searchParams;
+  const [{ id }, { order }] = await Promise.all([params, searchParams]);
 
-  const journeyDef = getJourneyDef(id);
-  if (!journeyDef) notFound();
-
-  const requestedOrder = VALID_ORDERS.find((o) => o === order);
-  const selectedOrder: JourneyOrderType =
-    requestedOrder && journeyDef.availableOrders.includes(requestedOrder)
-      ? requestedOrder
-      : journeyDef.availableOrders[0];
+  // Validate untrusted route/query input before it reaches any lookup.
+  const journeyId = journeyIdSchema.safeParse(id);
+  if (!journeyId.success) notFound();
+  const requestedOrder = journeyOrderSchema.safeParse(order);
 
   const session = await getSession();
-  const detail = await getJourneyDetail(journeyDef, selectedOrder, session?.userId ?? null);
+  // Unsupported orders fall back to the journey's default (release) order.
+  const detail = await getJourneyDetail(
+    journeyId.data,
+    requestedOrder.success ? requestedOrder.data : null,
+    session?.userId ?? null
+  );
+  if (!detail) notFound();
 
-  return <JourneyExperience journeyId={journeyDef.id} journeyName={journeyDef.name} detail={detail} />;
+  return <JourneyExperience journeyId={detail.id} journeyName={detail.name} detail={detail} />;
 }

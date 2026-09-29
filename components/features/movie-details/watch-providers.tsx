@@ -3,8 +3,8 @@ import { getOttDeepLink } from "@/lib/ott-providers";
 import type { TmdbWatchProviderRegion, TmdbWatchProvider } from "@/types/tmdb";
 
 interface WatchProvidersProps {
-  /** The India (`IN`) region entry from TMDB's watch/providers response,
-   *  or undefined if TMDB has no data for that country/movie at all. */
+  /** The viewer's region entry from TMDB's watch/providers response (region
+   *  chosen in lib/region.ts), or undefined if TMDB has no data for it. */
   region: TmdbWatchProviderRegion | undefined;
   /** Movie title, used to build each platform's direct search link. */
   movieTitle: string;
@@ -36,13 +36,13 @@ function dedupeProviders(region: TmdbWatchProviderRegion): TmdbWatchProvider[] {
 }
 
 /**
- * "Where to Watch" — streaming/rent/buy availability in India, powered by
- * TMDB's JustWatch partnership. Each badge links directly to that
+ * "Where to Watch" — streaming/rent/buy availability for the viewer's
+ * region (see lib/region.ts; India by default), powered by TMDB's JustWatch partnership. Each badge links directly to that
  * platform's own search results for the movie (best effort — TMDB's API
  * doesn't expose a real per-title deep link), falling back to TMDB's
  * watch page for the handful of providers not in lib/ott-providers.ts.
  * Per TMDB's terms this data must be attributed to JustWatch wherever
- * it's shown. Renders nothing if TMDB has no India availability.
+ * it's shown. Renders nothing if TMDB has no availability for the region.
  */
 export function WatchProviders({ region, movieTitle }: WatchProvidersProps) {
   if (!region) return null;

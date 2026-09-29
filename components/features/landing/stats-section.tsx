@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, animate } from "framer-motion";
 
-const STATS = [
-  { label: "Movies analyzed", value: 900000, suffix: "+" },
-  { label: "Recommendations generated", value: 4200000, suffix: "+" },
-  { label: "Average match score", value: 91, suffix: "%" },
-  { label: "Movie lovers", value: 58000, suffix: "+" },
-];
+export interface LandingStat {
+  label: string;
+  value: number;
+  suffix: string;
+}
 
 function formatValue(value: number) {
   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
@@ -42,7 +41,12 @@ function AnimatedStat({ value, suffix, label }: { value: number; suffix: string;
   );
 }
 
-export function StatsSection() {
+/**
+ * Every number here is derived from the running system (see app/page.tsx):
+ * TMDB's live catalog size and the app's own configuration — no invented
+ * usage or accuracy figures.
+ */
+export function StatsSection({ stats }: { stats: LandingStat[] }) {
   return (
     <section className="max-w-6xl mx-auto px-6 py-16">
       <motion.div
@@ -52,7 +56,7 @@ export function StatsSection() {
         transition={{ duration: 0.5 }}
         className="glass rounded-lg px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-8"
       >
-        {STATS.map((stat) => (
+        {stats.map((stat) => (
           <AnimatedStat key={stat.label} {...stat} />
         ))}
       </motion.div>

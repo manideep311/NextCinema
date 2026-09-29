@@ -20,8 +20,9 @@ const PAUSE_AFTER_DELETE_MS = 300;
 /**
  * Self-typing search field on the hero — cycles through example natural-
  * language queries so visitors immediately understand what the search can
- * do, without needing to type anything themselves. Links to the real
- * (guest-accessible) search page — no account required. Deliberately reads
+ * do. Every example is a query the real search interprets (similarity,
+ * mood, decade + quality — see lib/search/interpret.ts), and clicking opens
+ * the guest-accessible search page with the current example already run. Deliberately reads
  * as a premium discovery field, not an AI chatbot: no "AI-powered" badge,
  * no sparkle iconography.
  */
@@ -54,7 +55,7 @@ export function AiSearchDemo() {
   }, [displayed, isDeleting, queryIndex]);
 
   return (
-    <Link href="/dashboard/search" className="block w-full max-w-md">
+    <Link href={`/dashboard/search?q=${encodeURIComponent(DEMO_QUERIES[queryIndex])}`} className="block w-full max-w-md">
       <motion.div
         whileHover={{ borderColor: "var(--color-primary)" }}
         className="glass rounded-lg px-5 py-4 flex items-center gap-3 text-left cursor-text"

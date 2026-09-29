@@ -1,84 +1,96 @@
 import "server-only";
 import { ObjectId } from "mongodb";
-import { getUsersCollection } from "@/lib/db";
+import { getUsersCollection, isDuplicateKeyError } from "@/lib/db";
 import type { UserDoc } from "@/lib/db/schema";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { getDummyPasswordHash, hashPassword, needsRehash, verifyPassword } from "@/lib/auth/password";
+import type { UserRole } from "@/lib/auth/token";
 
 export interface PublicUser {
   id: string;
   email: string;
   name: string;
-  avatarUrl: string | null;
-  role: "user" | "premium" | "admin";
+  role: UserRole;
 }
 
-function toPublicUser(doc: UserDoc): PublicUser {
-  return { id: doc._id.toString(), email: doc.email, name: doc.name, avatarUrl: doc.avatarUrl, role: doc.role };
+/** Wrong email *or* wrong password — deliberately indistinguishable. */
+export class InvalidCredentialsError extends Error {
+  constructor() {
+    super("Invalid email or password.");
+    this.name = "InvalidCredentialsError";
+  }
 }
 
-export async function findUserByEmail(email: string) {
+export class AccountUnavailableError extends Error {
+  constructor() {
+    super("Could not create an account with those details.");
+    this.name = "AccountUnavailableError";
+  }
+}
+
+function toPublicUser(doc: Pick<UserDoc, "_id" | "email" | "name" | "role">): PublicUser {
+  return { id: doc._id.toString(), email: doc.email, name: doc.name, role: doc.role };
+}
+
+export function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/**
+ * Creates an account. Uniqueness is enforced by the `email` unique index —
+ * a concurrent duplicate signup loses the race at the database, not in app
+ * code — and the error surfaced to the client doesn't name the reason.
+ */
+export async function createUser(params: { email: string; password: string; name: string }): Promise<PublicUser> {
   const users = await getUsersCollection();
-  return users.findOne({ email: email.toLowerCase() });
-}
+  const email = normalizeEmail(params.email);
 
-export async function createUser(params: {
-  email: string;
-  password: string;
-  name: string;
-}): Promise<PublicUser> {
-  const users = await getUsersCollection();
-  const email = params.email.toLowerCase();
-
-  const existing = await users.findOne({ email });
-  if (existing) {
-    throw new Error("An account with this email already exists.");
+  // Cheap indexed pre-check so the common "already registered" case skips
+  // the scrypt cost; the unique index below remains the real guarantee.
+  if (await users.findOne({ email }, { projection: { _id: 1 } })) {
+    throw new AccountUnavailableError();
   }
 
-  const passwordHash = await hashPassword(params.password);
   const doc: UserDoc = {
     _id: new ObjectId(),
     email,
-    passwordHash,
+    passwordHash: await hashPassword(params.password),
     name: params.name,
     avatarUrl: null,
     role: "user",
     createdAt: new Date(),
   };
 
-  await users.insertOne(doc);
+  try {
+    await users.insertOne(doc);
+  } catch (error) {
+    if (isDuplicateKeyError(error)) throw new AccountUnavailableError();
+    throw error;
+  }
   return toPublicUser(doc);
 }
 
-// Fixed, well-formed placeholder in the same `${salt}:${keyHex}` shape real
-// stored hashes use — never a real password's hash, just enough for
-// verifyPassword to run its actual scrypt computation. Used only to make
-// the "no such account" path below pay the same cost as a real lookup.
-const DUMMY_PASSWORD_HASH = `${"a".repeat(32)}:${"b".repeat(128)}`;
-
-export async function authenticateUser(email: string, password: string): Promise<PublicUser> {
-  const doc = await findUserByEmail(email);
-  if (!doc) {
-    // Unknown email would otherwise return immediately, while a wrong
-    // password below pays scrypt's cost — a measurable timing difference
-    // an attacker could use to enumerate valid emails. Running the same
-    // hash-and-compare here (result always discarded) closes that gap
-    // without changing what's thrown or any other behavior.
-    await verifyPassword(password, DUMMY_PASSWORD_HASH);
-    throw new Error("Invalid email or password.");
-  }
-
-  const valid = await verifyPassword(password, doc.passwordHash);
-  if (!valid) {
-    throw new Error("Invalid email or password.");
-  }
-
-  return toPublicUser(doc);
-}
-
-export async function getUserById(id: string): Promise<PublicUser | null> {
-  if (!ObjectId.isValid(id)) return null;
-
+export async function authenticateUser(emailInput: string, password: string): Promise<PublicUser> {
   const users = await getUsersCollection();
-  const doc = await users.findOne({ _id: new ObjectId(id) });
-  return doc ? toPublicUser(doc) : null;
+  const doc = await users.findOne(
+    { email: normalizeEmail(emailInput) },
+    { projection: { _id: 1, email: 1, name: 1, role: 1, passwordHash: 1 } }
+  );
+
+  if (!doc) {
+    // Pay the same scrypt cost as a real comparison so response timing
+    // doesn't reveal which emails are registered.
+    await verifyPassword(password, await getDummyPasswordHash());
+    throw new InvalidCredentialsError();
+  }
+
+  if (!(await verifyPassword(password, doc.passwordHash))) {
+    throw new InvalidCredentialsError();
+  }
+
+  // Transparently upgrade hashes created with older parameters/format.
+  if (needsRehash(doc.passwordHash)) {
+    await users.updateOne({ _id: doc._id }, { $set: { passwordHash: await hashPassword(password) } });
+  }
+
+  return toPublicUser(doc);
 }

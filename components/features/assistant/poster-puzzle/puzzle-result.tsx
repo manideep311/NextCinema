@@ -41,7 +41,7 @@ export function PuzzleResult({
         transition={{ duration: 0.4, ease: "easeOut" }}
         className="relative w-32 aspect-[2/3] mx-auto rounded-lg overflow-hidden ring-1 ring-white/10 shadow-2xl mb-4"
       >
-        <Image src={posterUrl} alt={movie.title} fill sizes="128px" className="object-cover" />
+        <Image src={posterUrl} alt={movie.title} fill sizes="128px" className="object-cover" unoptimized />
       </motion.div>
 
       <p className="text-[11px] uppercase tracking-[0.2em] text-primary mb-1">You got it</p>

@@ -33,6 +33,11 @@ export interface TmdbSpokenLanguage {
   english_name: string;
 }
 
+export interface TmdbCollectionRef {
+  id: number;
+  name: string;
+}
+
 export interface TmdbMovieDetails extends Omit<TmdbMovie, "genre_ids"> {
   genres: TmdbGenre[];
   runtime: number | null;
@@ -43,6 +48,40 @@ export interface TmdbMovieDetails extends Omit<TmdbMovie, "genre_ids"> {
   production_companies: TmdbProductionCompany[];
   spoken_languages: TmdbSpokenLanguage[];
   original_language: string;
+  /** The TMDB collection (franchise series) this movie belongs to, if any. */
+  belongs_to_collection: TmdbCollectionRef | null;
+}
+
+/** A TMDB collection's full member list — the franchise-membership signal for journeys. */
+export interface TmdbCollection {
+  id: number;
+  name: string;
+  parts: TmdbMovie[];
+}
+
+export interface TmdbPerson {
+  id: number;
+  name: string;
+  known_for_department: string;
+  popularity: number;
+  profile_path: string | null;
+}
+
+export interface TmdbPersonCastCredit extends TmdbMovie {
+  character: string;
+  /** Billing position — 0 is top billing. */
+  order: number;
+}
+
+export interface TmdbPersonCrewCredit extends TmdbMovie {
+  job: string;
+  department: string;
+}
+
+export interface TmdbPersonMovieCredits {
+  id: number;
+  cast: TmdbPersonCastCredit[];
+  crew: TmdbPersonCrewCredit[];
 }
 
 export interface TmdbCastMember {

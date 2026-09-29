@@ -1,5 +1,19 @@
 import type { TmdbMovieWithExtras } from "@/services/tmdb";
 import type { MovieProfile } from "@/types/movie";
+import type { TmdbMovie } from "@/types/tmdb";
+
+/** The minimal shape every movie card/grid renders. */
+export type CardMovie = Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
+
+export function toCardMovie(movie: TmdbMovie): CardMovie {
+  return {
+    id: movie.id,
+    title: movie.title,
+    posterPath: movie.poster_path,
+    voteAverage: movie.vote_average,
+    releaseYear: movie.release_date ? movie.release_date.slice(0, 4) : null,
+  };
+}
 
 const MAX_CAST_MEMBERS = 5;
 

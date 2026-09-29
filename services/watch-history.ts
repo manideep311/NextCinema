@@ -1,12 +1,32 @@
 import "server-only";
 import { ObjectId } from "mongodb";
-import { getWatchHistoryCollection } from "@/lib/db";
+import { getWatchHistoryCollection, userObjectId } from "@/lib/db";
 import type { WatchHistoryDoc } from "@/lib/db/schema";
 import type { StoredMovie } from "@/types/storage";
+import type { MovieSnapshot } from "@/services/movie-snapshot";
 
-const MAX_HISTORY_ROWS = 12;
+// "Viewed/opened" history — what Recently Viewed shows. This is NOT
+// "watched": opening a movie page never counts toward journey progress
+// (see services/watched.ts for the explicit "I watched this" record).
 
-function toStoredMovie(doc: WatchHistoryDoc): StoredMovie {
+export const RECENTLY_VIEWED_LIMIT = 12;
+
+/** Re-opening the same movie within this window doesn't rewrite its history row. */
+const VIEW_WRITE_THROTTLE_MS = 5 * 60_000;
+
+const SNAPSHOT_PROJECTION = {
+  _id: 0,
+  movieId: 1,
+  title: 1,
+  posterPath: 1,
+  voteAverage: 1,
+  releaseYear: 1,
+  viewedAt: 1,
+} as const;
+
+type HistoryRow = Pick<WatchHistoryDoc, "movieId" | "title" | "posterPath" | "voteAverage" | "releaseYear" | "viewedAt">;
+
+function toStoredMovie(doc: HistoryRow): StoredMovie {
   return {
     id: doc.movieId,
     title: doc.title,
@@ -17,43 +37,62 @@ function toStoredMovie(doc: WatchHistoryDoc): StoredMovie {
   };
 }
 
-export async function listWatchHistory(userId: string): Promise<StoredMovie[]> {
-  const watchHistory = await getWatchHistoryCollection();
-  const docs = await watchHistory
-    .find({ userId: new ObjectId(userId) })
+export async function listWatchHistory(userId: string, limit: number = RECENTLY_VIEWED_LIMIT): Promise<StoredMovie[]> {
+  const history = await getWatchHistoryCollection();
+  const docs = await history
+    .find({ userId: userObjectId(userId) })
     .sort({ viewedAt: -1 })
-    .limit(MAX_HISTORY_ROWS)
+    .limit(limit)
+    .project<HistoryRow>(SNAPSHOT_PROJECTION)
     .toArray();
   return docs.map(toStoredMovie);
 }
 
-/**
- * Which of the given movie ids has this user actually viewed — the
- * "watched" signal Movie Journeys reuses for progress. Deliberately not
- * limited to MAX_HISTORY_ROWS: `listWatchHistory` caps at the 12 most
- * recent movies for the "Continue Watching" rail, but a journey can have
- * up to 23 entries, and an older watch shouldn't silently drop off a
- * journey's progress just because the user viewed other movies since.
- */
-export async function listWatchedMovieIds(userId: string, movieIds: number[]): Promise<Set<number>> {
-  if (movieIds.length === 0) return new Set();
-
-  const watchHistory = await getWatchHistoryCollection();
-  const docs = await watchHistory
-    .find({ userId: new ObjectId(userId), movieId: { $in: movieIds } })
-    .project<{ movieId: number }>({ movieId: 1 })
-    .toArray();
-  return new Set(docs.map((d) => d.movieId));
+export async function countWatchHistory(userId: string): Promise<number> {
+  const history = await getWatchHistoryCollection();
+  return history.countDocuments({ userId: userObjectId(userId) });
 }
 
-/** Upsert: re-viewing a movie just bumps it back to the top instead of duplicating a document. */
-export async function recordWatchHistory(userId: string, movie: Omit<StoredMovie, "addedAt">) {
-  const watchHistory = await getWatchHistoryCollection();
-  await watchHistory.updateOne(
-    { userId: new ObjectId(userId), movieId: movie.id },
+/**
+ * Records a view. One row per user per movie (unique index); re-viewing
+ * bumps `viewedAt` — but only if the previous view is older than the
+ * throttle window, so refreshing or bouncing back to a page doesn't issue
+ * a write every time.
+ */
+export async function recordView(userId: string, movie: MovieSnapshot): Promise<void> {
+  const history = await getWatchHistoryCollection();
+  const owner = userObjectId(userId);
+  const now = new Date();
+
+  // Existing row older than the throttle window → move it to the top.
+  const bumped = await history.updateOne(
+    { userId: owner, movieId: movie.id, viewedAt: { $lt: new Date(now.getTime() - VIEW_WRITE_THROTTLE_MS) } },
     {
-      $set: { viewedAt: new Date(), title: movie.title, posterPath: movie.posterPath, voteAverage: movie.voteAverage, releaseYear: movie.releaseYear },
-      $setOnInsert: { _id: new ObjectId(), userId: new ObjectId(userId), movieId: movie.id },
+      $set: {
+        viewedAt: now,
+        title: movie.title,
+        posterPath: movie.posterPath,
+        voteAverage: movie.voteAverage,
+        releaseYear: movie.releaseYear,
+      },
+    }
+  );
+  if (bumped.matchedCount > 0) return;
+
+  // Either the first view (insert) or a recent re-view ($setOnInsert makes that a no-op).
+  await history.updateOne(
+    { userId: owner, movieId: movie.id },
+    {
+      $setOnInsert: {
+        _id: new ObjectId(),
+        userId: owner,
+        movieId: movie.id,
+        title: movie.title,
+        posterPath: movie.posterPath,
+        voteAverage: movie.voteAverage,
+        releaseYear: movie.releaseYear,
+        viewedAt: now,
+      },
     },
     { upsert: true }
   );

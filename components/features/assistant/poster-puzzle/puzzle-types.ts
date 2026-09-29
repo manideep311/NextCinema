@@ -84,14 +84,6 @@ export function isSolved(tiles: number[]): boolean {
   return tiles.every((v, i) => v === i);
 }
 
-/** Stable day-of-year seed — used for "Today's Poster" so everyone gets the same pick on a given day, without any backend. */
-export function dayOfYearSeed(): number {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 0);
-  const diffMs = now.getTime() - start.getTime();
-  return Math.floor(diffMs / 86_400_000);
-}
-
 export function formatElapsed(ms: number): string {
   const totalSeconds = ms / 1000;
   const minutes = Math.floor(totalSeconds / 60);

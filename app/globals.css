@@ -117,3 +117,208 @@
     display: none;
   }
 }
+
+/*
+ * Opening intro — a ~1.6s studio-title reveal shown once per browsing
+ * session (components/features/intro/opening-intro.tsx). Pure CSS so it
+ * starts on first paint, before hydration. Only opacity/transform/filter
+ * are animated (no layout properties), and the overlay is fixed, so it
+ * can't shift the page underneath.
+ *
+ *   0–200ms     dark frame: film-strip silhouette, a few motes, ambient light
+ *   200–800ms   light sweep crosses the frame; letters emerge left → right
+ *   ~900ms      wordmark complete, subtle glow
+ *   900–1200ms  brief hold with a faint shimmer
+ *   1200–1600ms wordmark softens away while the overlay cross-fades to the site
+ */
+.nc-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--color-background);
+  animation: nc-intro-exit 380ms cubic-bezier(0.65, 0, 0.35, 1) 1220ms forwards;
+}
+
+.nc-intro.nc-intro--skip {
+  animation: nc-intro-skip 200ms ease-out forwards;
+}
+
+/* Soft ambient light that builds from the dark frame. */
+.nc-intro::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(ellipse 42% 26% at 50% 50%, rgba(198, 154, 77, 0.11), transparent 70%);
+  opacity: 0;
+  animation: nc-intro-ambient 1400ms ease-out forwards;
+}
+
+.nc-intro-strip {
+  position: absolute;
+  left: -15%;
+  right: -15%;
+  top: 50%;
+  height: clamp(64px, 13vw, 116px);
+  border-block: 1px solid rgba(243, 237, 226, 0.05);
+  background:
+    repeating-linear-gradient(90deg, rgba(243, 237, 226, 0.09) 0 10px, transparent 10px 24px) left 0 top 9px / 100% 7px no-repeat,
+    repeating-linear-gradient(90deg, rgba(243, 237, 226, 0.09) 0 10px, transparent 10px 24px) left 0 bottom 9px / 100% 7px no-repeat,
+    linear-gradient(180deg, rgba(243, 237, 226, 0.035), rgba(243, 237, 226, 0.015));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 28%, #000 72%, transparent);
+  opacity: 0;
+  transform: translateY(-50%) rotate(-6deg) translateX(-1.5%);
+  animation: nc-intro-strip 1600ms ease-out forwards;
+}
+
+.nc-intro-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 9999px;
+  background: rgba(215, 176, 108, 0.7);
+  opacity: 0;
+  animation: nc-intro-particle 1200ms ease-out var(--d, 0ms) forwards;
+}
+
+/* The light sweep — a narrow, skewed beam crossing the frame once. */
+.nc-intro-sweep {
+  position: absolute;
+  top: -40%;
+  bottom: -40%;
+  left: 50%;
+  width: 16vmax;
+  margin-left: -8vmax;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(198, 154, 77, 0.06) 35%,
+    rgba(255, 236, 200, 0.2) 50%,
+    rgba(198, 154, 77, 0.06) 65%,
+    transparent
+  );
+  mix-blend-mode: screen;
+  opacity: 0;
+  transform: translateX(-70vw) skewX(-14deg);
+  animation: nc-intro-sweep 620ms cubic-bezier(0.45, 0.05, 0.25, 1) 180ms forwards;
+}
+
+.nc-intro-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 16px;
+}
+
+/* Thin horizon line of light that draws out beneath the wordmark. */
+.nc-intro-line {
+  position: absolute;
+  left: -30vw;
+  right: -30vw;
+  top: calc(100% + 0.35em);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(215, 176, 108, 0.5) 50%, transparent);
+  opacity: 0;
+  transform: scaleX(0);
+  animation: nc-intro-line 700ms cubic-bezier(0.22, 1, 0.36, 1) 180ms forwards;
+}
+
+.nc-intro-word {
+  position: relative;
+  display: flex;
+  align-items: center;
+  font-size: clamp(2.4rem, 10vw, 5rem);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--color-text);
+  animation:
+    nc-intro-shimmer 300ms ease-in-out 880ms,
+    nc-intro-word-exit 360ms cubic-bezier(0.65, 0, 0.35, 1) 1200ms forwards;
+}
+
+.nc-intro-gold {
+  display: inline-flex;
+  color: var(--color-primary);
+  text-shadow: 0 0 28px rgba(198, 154, 77, 0.28);
+}
+
+.nc-intro-letter {
+  display: inline-block;
+  opacity: 0;
+  animation: nc-intro-letter 420ms cubic-bezier(0.22, 1, 0.36, 1) calc(300ms + var(--i, 0) * 26ms) forwards;
+}
+
+.nc-intro-icon {
+  margin-right: 0.28em;
+}
+
+.nc-intro-icon svg {
+  width: 0.72em;
+  height: 0.72em;
+}
+
+@keyframes nc-intro-exit {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes nc-intro-skip {
+  to { opacity: 0; visibility: hidden; }
+}
+
+@keyframes nc-intro-ambient {
+  0% { opacity: 0; }
+  30% { opacity: 0.6; }
+  65% { opacity: 1; }
+  100% { opacity: 0.45; }
+}
+
+@keyframes nc-intro-strip {
+  0% { opacity: 0; transform: translateY(-50%) rotate(-6deg) translateX(-1.5%); }
+  18% { opacity: 0.9; }
+  75% { opacity: 0.6; }
+  100% { opacity: 0.35; transform: translateY(-50%) rotate(-6deg) translateX(1.5%); }
+}
+
+@keyframes nc-intro-particle {
+  0% { opacity: 0; transform: translateY(6px); }
+  35% { opacity: 0.8; }
+  100% { opacity: 0; transform: translateY(-16px); }
+}
+
+@keyframes nc-intro-sweep {
+  0% { opacity: 0; transform: translateX(-70vw) skewX(-14deg); }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(70vw) skewX(-14deg); }
+}
+
+@keyframes nc-intro-line {
+  0% { opacity: 0; transform: scaleX(0); }
+  45% { opacity: 1; }
+  100% { opacity: 0.25; transform: scaleX(1); }
+}
+
+@keyframes nc-intro-letter {
+  0% { opacity: 0; filter: blur(6px); transform: translateX(-4px); }
+  60% { opacity: 1; }
+  100% { opacity: 1; filter: blur(0); transform: none; }
+}
+
+@keyframes nc-intro-shimmer {
+  50% { filter: brightness(1.18); }
+}
+
+@keyframes nc-intro-word-exit {
+  to { opacity: 0; filter: blur(8px); transform: scale(1.03); }
+}
+
+/* Reduced motion: no intro at all — the site is simply there. */
+@media (prefers-reduced-motion: reduce) {
+  .nc-intro {
+    display: none;
+  }
+}

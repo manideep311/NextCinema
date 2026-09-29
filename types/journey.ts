@@ -1,60 +1,160 @@
 // Movie Journeys — app-level types.
 //
-// A journey never stores full movie records. Each entry is just enough to
-// (a) identify the real movie via the existing TMDB integration, and (b)
-// place it in whichever watch orders the franchise actually supports. The
-// hydrated/resolved shape (with poster, runtime, etc.) is built at request
-// time in services/journeys.ts — see that file for why.
+// Two layers:
+//  1. DEFINITIONS (data): what a journey *is* — its source of candidate
+//     movies, hard matching rules, ranking weights, and quality threshold.
+//     Authored in lib/journeys/definitions/, consumed by the engine.
+//  2. RESOLVED journeys (UI-facing): the ranked, ordered movie list with
+//     per-user watched state that the existing Journey components render.
 
 export type JourneyOrderType = "release" | "chronological" | "essential";
 
-export interface JourneyMovieDef {
-  /** Official theatrical title — must match TMDB's own `title` field so it
-   *  can be resolved via search and matched against movie detail pages
-   *  without storing a TMDB id we can't verify from static data. */
+export type JourneyType = "franchise" | "genre" | "theme" | "mood" | "discovery";
+
+/** What kind of franchise a franchise journey is — shown as the card's eyebrow label. */
+export type FranchiseKind =
+  | "universe"
+  | "indian-universe"
+  | "action"
+  | "superhero"
+  | "scifi-fantasy"
+  | "animated"
+  | "family"
+  | "comedy"
+  | "horror"
+  | "crime-thriller"
+  | "drama-romance"
+  | "indian"
+  | "world";
+
+/**
+ * How often a journey's membership can change, which sets how long its
+ * resolved form is cached: curated/collection journeys barely move; ranked
+ * genre/theme lists drift slowly; trending-based ones change within a day.
+ */
+export type JourneyFreshness = "weekly" | "daily" | "hourly";
+
+/** A hand-verified franchise entry (title + year), with any orders the franchise genuinely supports. */
+export interface CuratedJourneyMovie {
+  /** Official theatrical title — matched against TMDB search results. */
   title: string;
-  /** Verified theatrical release year — used both to disambiguate search
-   *  results (remakes, re-releases) and to render immediately if a title
-   *  hasn't resolved yet. */
+  /** Verified release year — disambiguates remakes/re-releases. */
   releaseYear: string;
-  /** 1-based position in original theatrical release order. */
+  /** 1-based position in theatrical release order. */
   releaseOrder: number;
-  /** 1-based position in in-universe story order — omitted when the
-   *  journey has no order distinct from release order. */
+  /** 1-based in-universe story order — only where a documented distinct order exists. */
   chronologicalOrder?: number;
-  /** Part of the trimmed "main story only" path — omitted entirely for
-   *  journeys with no meaningful optional/side entries. */
+  /** Part of the "main story only" path — only for franchises with a real optional/side split. */
   isEssential?: boolean;
 }
 
-export interface JourneyDef {
+/** Kept as an alias: older components refer to curated entries by this name. */
+export type JourneyMovieDef = CuratedJourneyMovie;
+
+/**
+ * Hard membership rules. Where TMDB's /discover supports a rule it's sent
+ * to TMDB (so the candidate pool is already filtered), and every rule is
+ * also enforced locally — so an unsupported parameter can never let
+ * unrelated movies through.
+ */
+export interface JourneyRules {
+  /** Movie must have ALL of these genre ids. */
+  genres?: number[];
+  /** Movie must have AT LEAST ONE of these genre ids. */
+  anyGenres?: number[];
+  /** Movie must have NONE of these genre ids. */
+  excludeGenres?: number[];
+  /** ISO 639-1 original-language codes (any of). */
+  languages?: string[];
+  /** Original languages to exclude (e.g. "en" for International Cinema). */
+  excludeLanguages?: string[];
+  /** ISO 3166-1 production-origin country (sent to TMDB as `with_origin_country`). */
+  originCountry?: string;
+  releasedAfterYear?: number;
+  releasedBeforeYear?: number;
+  /** Rolling window, evaluated at resolution time — what makes "recent" journeys refresh themselves. */
+  releasedWithinDays?: number;
+  minVotes?: number;
+  maxVotes?: number;
+  minRating?: number;
+  /** Local-only: TMDB popularity ceiling (used to keep "hidden gem" journeys genuinely under-seen). */
+  maxPopularity?: number;
+  /** Sent to TMDB only — list results don't include runtime. */
+  minRuntime?: number;
+  maxRuntime?: number;
+}
+
+export type JourneySortBy = "vote_average.desc" | "vote_count.desc" | "popularity.desc" | "primary_release_date.desc";
+
+/** Where a journey's candidate movies come from. */
+export type JourneySource =
+  /** Hand-verified title list with genuine alternate orders (MCU, Star Wars, ...). */
+  | { kind: "curated"; movies: CuratedJourneyMovie[]; orders: JourneyOrderType[] }
+  /** TMDB collections (series), by verified name + id — see lib/journeys/definitions/tmdb-collections.ts. */
+  | { kind: "collection"; collections: { name: string; id: number }[] }
+  /** TMDB keywords, resolved by exact name at runtime; movies must be tagged with at least one. */
+  | { kind: "keyword"; keywords: string[]; sortBy?: JourneySortBy; pages?: number }
+  /** A TMDB /discover query built from the journey's rules. */
+  | { kind: "discover"; sortBy: JourneySortBy; pages?: number }
+  /** A person's filmography — as director, or in a leading role. */
+  | { kind: "person"; name: string; role: "director" | "lead" }
+  /** TMDB's trending lists — membership changes as the trend does. */
+  | { kind: "trending"; window: "day" | "week"; pages: number };
+
+/** Soft ranking weights (any subset; normalized by their sum). */
+export interface JourneyRanking {
+  /** Bayesian-adjusted rating. */
+  quality?: number;
+  /** Vote count (log-scaled) — how established the consensus is. */
+  consensus?: number;
+  popularity?: number;
+  /** Newer releases score higher. */
+  recency?: number;
+  /** Prior strength for the Bayesian rating — lower for smaller industries with fewer TMDB votes. */
+  priorVotes?: number;
+}
+
+export interface JourneySelection {
+  maxMovies: number;
+  /** Spread across eras: at most this many movies per release decade. */
+  perDecadeCap?: number;
+  /** Spread across languages (International Cinema). */
+  perLanguageCap?: number;
+}
+
+export interface JourneyDefinition {
   id: string;
+  type: JourneyType;
+  /** Franchise journeys only: which kind of franchise (cinematic universe, horror series, …). */
+  franchiseKind?: FranchiseKind;
   name: string;
-  /** Short label for tight spaces (nav, cards). */
+  /** Short label for tight spaces (search matches, "Continue the X journey"). */
   shortName: string;
   description: string;
-  /** Extra search terms beyond the name/movie titles themselves. */
-  aliases: string[];
-  /** Which order types this journey actually supports — drives whether
-   *  the order selector shows up at all, and with how many options. */
-  availableOrders: JourneyOrderType[];
-  movies: JourneyMovieDef[];
+  /** Extra search terms beyond the name. */
+  aliases?: string[];
+  source: JourneySource;
+  rules?: JourneyRules;
+  ranking?: JourneyRanking;
+  selection?: JourneySelection;
+  /** Below this many qualifying movies the journey is not shown at all. */
+  minimumMovies: number;
+  freshness: JourneyFreshness;
 }
 
 export type JourneyMovieState = "watched" | "next" | "upcoming";
 
-/** A journey movie once resolved against the live TMDB catalog. `id` is
- *  null when resolution failed (e.g. TMDB search turned up nothing) —
- *  callers should render a graceful "poster unavailable" placeholder
- *  rather than dropping the entry, so the timeline's ordering stays intact. */
-export interface ResolvedJourneyMovie extends JourneyMovieDef {
+/**
+ * A journey movie resolved against the live TMDB catalog. `id` is null
+ * only for curated entries whose title couldn't be resolved — rendered as
+ * a "poster unavailable" placeholder so the order stays intact.
+ */
+export interface ResolvedJourneyMovie extends CuratedJourneyMovie {
   id: number | null;
   posterPath: string | null;
   voteAverage: number | null;
   runtime: number | null;
-  /** Real TMDB tagline/overview, when resolution succeeded — used for the
-   *  journey hero's short blurb. Never invented; both fall back to null
-   *  when TMDB has nothing (hero hides the line rather than making text up). */
+  /** Real TMDB tagline/overview when available — never invented. */
   tagline: string | null;
   overview: string | null;
   state: JourneyMovieState;
@@ -63,13 +163,14 @@ export interface ResolvedJourneyMovie extends JourneyMovieDef {
 export interface JourneyProgress {
   watchedCount: number;
   totalCount: number;
-  /** Next unwatched movie in release order — the default "what's next"
-   *  used by the dashboard and movie-detail integrations. Null once every
-   *  movie in the journey has been watched. */
+  /** Next unwatched movie in release order; null once every movie is watched. */
   nextMovie: ResolvedJourneyMovie | null;
 }
 
-export interface ResolvedJourney extends Omit<JourneyDef, "movies"> {
-  movies: ResolvedJourneyMovie[];
-  progress: JourneyProgress;
+/** Lightweight match shown above search results. */
+export interface JourneySearchResult {
+  id: string;
+  name: string;
+  movieCount: number;
+  orderLabel: string;
 }

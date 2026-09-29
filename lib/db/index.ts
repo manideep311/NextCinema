@@ -1,6 +1,13 @@
 import "server-only";
-import { MongoClient, type Db, type Collection } from "mongodb";
-import { COLLECTIONS, type UserDoc, type FavoriteDoc, type WatchlistDoc, type WatchHistoryDoc } from "@/lib/db/schema";
+import { MongoClient, MongoServerError, ObjectId, type Db, type Collection } from "mongodb";
+import {
+  COLLECTIONS,
+  type UserDoc,
+  type FavoriteDoc,
+  type WatchlistDoc,
+  type WatchHistoryDoc,
+  type WatchedDoc,
+} from "@/lib/db/schema";
 
 const DEFAULT_DB_NAME = "cinematch";
 
@@ -25,8 +32,6 @@ function getClientPromise(): Promise<MongoClient> {
   }
 
   if (process.env.NODE_ENV === "development") {
-    // Local const (not the outer `global._mongoClientPromise` reference)
-    // so TypeScript can narrow away `undefined` before we return it.
     const cached = global._mongoClientPromise ?? new MongoClient(uri).connect();
     global._mongoClientPromise = cached;
     return cached;
@@ -57,4 +62,25 @@ export async function getWatchlistCollection(): Promise<Collection<WatchlistDoc>
 
 export async function getWatchHistoryCollection(): Promise<Collection<WatchHistoryDoc>> {
   return (await getDb()).collection<WatchHistoryDoc>(COLLECTIONS.watchHistory);
+}
+
+export async function getWatchedCollection(): Promise<Collection<WatchedDoc>> {
+  return (await getDb()).collection<WatchedDoc>(COLLECTIONS.watched);
+}
+
+/**
+ * Converts a session-derived user id into an ObjectId. The id already
+ * passed the session token's shape check; this is the last line of defense
+ * so a malformed value can never reach a query as something unexpected.
+ */
+export function userObjectId(userId: string): ObjectId {
+  if (!ObjectId.isValid(userId) || !/^[a-f0-9]{24}$/.test(userId)) {
+    throw new Error("Invalid user id");
+  }
+  return new ObjectId(userId);
+}
+
+/** E11000 — a unique index rejected the write (e.g. a concurrent duplicate insert). */
+export function isDuplicateKeyError(error: unknown): boolean {
+  return error instanceof MongoServerError && error.code === 11000;
 }

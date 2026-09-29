@@ -1,0 +1,46 @@
+// TMDB's official movie genre ids (stable, published at /genre/movie/list).
+// Shared by the mood lexicon, search interpretation, and journey definitions.
+
+export const GENRE = {
+  action: 28,
+  adventure: 12,
+  animation: 16,
+  comedy: 35,
+  crime: 80,
+  documentary: 99,
+  drama: 18,
+  family: 10751,
+  fantasy: 14,
+  history: 36,
+  horror: 27,
+  music: 10402,
+  mystery: 9648,
+  romance: 10749,
+  sciFi: 878,
+  thriller: 53,
+  tvMovie: 10770,
+  war: 10752,
+  western: 37,
+} as const;
+
+export const GENRE_NAMES: Record<number, string> = {
+  [GENRE.action]: "Action",
+  [GENRE.adventure]: "Adventure",
+  [GENRE.animation]: "Animation",
+  [GENRE.comedy]: "Comedy",
+  [GENRE.crime]: "Crime",
+  [GENRE.documentary]: "Documentary",
+  [GENRE.drama]: "Drama",
+  [GENRE.family]: "Family",
+  [GENRE.fantasy]: "Fantasy",
+  [GENRE.history]: "History",
+  [GENRE.horror]: "Horror",
+  [GENRE.music]: "Music",
+  [GENRE.mystery]: "Mystery",
+  [GENRE.romance]: "Romance",
+  [GENRE.sciFi]: "Sci-Fi",
+  [GENRE.thriller]: "Thriller",
+  [GENRE.tvMovie]: "TV Movie",
+  [GENRE.war]: "War",
+  [GENRE.western]: "Western",
+};

@@ -17,8 +17,9 @@ interface JourneyExperienceProps {
   detail: JourneyDetail;
 }
 
+/** Only the position is stored: the movie itself is re-read from `detail.timeline`, so after
+ *  marking it watched (router.refresh) the popup shows the fresh server state. */
 interface InspectorState {
-  movie: ResolvedJourneyMovie;
   index: number;
 }
 
@@ -66,9 +67,11 @@ export function JourneyExperience({ journeyId, journeyName, detail }: JourneyExp
     };
   }, [journeyId, detail.progress.watchedCount]);
 
-  function handleSelect(movie: ResolvedJourneyMovie, index: number) {
-    setInspector({ movie, index });
+  function handleSelect(_movie: ResolvedJourneyMovie, index: number) {
+    setInspector({ index });
   }
+
+  const inspectedMovie = inspector ? (detail.timeline[inspector.index] ?? null) : null;
 
   const orderLabel = ORDER_LABELS[detail.selectedOrder].label;
 
@@ -101,11 +104,12 @@ export function JourneyExperience({ journeyId, journeyName, detail }: JourneyExp
       <JourneyTrack movies={detail.timeline} onSelect={handleSelect} />
 
       <JourneyMovieInspector
-        movie={inspector?.movie ?? null}
+        journeyId={journeyId}
+        movie={inspectedMovie}
         position={(inspector?.index ?? 0) + 1}
         totalInOrder={detail.timeline.length}
         orderLabel={orderLabel}
-        isNextMovie={inspector?.movie.state === "next"}
+        isNextMovie={inspectedMovie?.state === "next"}
         onClose={() => setInspector(null)}
       />
     </div>

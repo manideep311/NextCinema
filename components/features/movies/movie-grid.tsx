@@ -9,6 +9,8 @@ import { staggerContainer, fadeInUp, EASE_OUT } from "@/components/motion/motion
 interface MovieGridProps {
   movies: Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">[];
   matchScores?: Record<number, number>;
+  /** Optional one-line "why it fits" per movie, shown on hover (recommendation surfaces). */
+  reasons?: Record<number, string>;
 }
 
 /**
@@ -19,7 +21,7 @@ interface MovieGridProps {
  * callers that swap `movies` without remounting (e.g. a tab switch) can
  * key this component to replay the reveal — see CategoryTabs/SearchPage.
  */
-export function MovieGrid({ movies, matchScores }: MovieGridProps) {
+export function MovieGrid({ movies, matchScores, reasons }: MovieGridProps) {
   const reducedMotion = useReducedMotion();
 
   return (
@@ -35,7 +37,7 @@ export function MovieGrid({ movies, matchScores }: MovieGridProps) {
           variants={reducedMotion ? undefined : fadeInUp}
           transition={{ duration: 0.25, ease: EASE_OUT }}
         >
-          <MovieCard movie={movie} matchScore={matchScores?.[movie.id]} />
+          <MovieCard movie={movie} matchScore={matchScores?.[movie.id]} reason={reasons?.[movie.id]} />
         </motion.div>
       ))}
     </motion.div>

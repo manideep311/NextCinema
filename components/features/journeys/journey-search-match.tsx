@@ -3,24 +3,17 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Route, ArrowRight } from "lucide-react";
-import type { JourneyDef } from "@/types/journey";
-
-const ORDER_LABEL: Record<string, string> = {
-  release: "Release order",
-  chronological: "Chronological order",
-  essential: "Essential order",
-};
+import type { JourneySearchResult } from "@/types/journey";
 
 interface JourneySearchMatchProps {
-  journeys: JourneyDef[];
+  journeys: JourneySearchResult[];
 }
 
 /**
- * Shown above normal search results when the query matches a known
- * franchise or one of its movies — search itself is untouched, this is
- * purely additive. No TMDB/poster data needed here (see
- * lib/journeys/definitions.ts#findJourneysByQuery — pure string match),
- * so it can render instantly without waiting on the movie results.
+ * Shown above normal search results when the query matches a journey
+ * (franchise, genre, mood, director, …). Matching happens server-side in
+ * /api/search, so the journey catalog never ships to the browser; only
+ * journeys that currently meet their quality threshold are returned.
  */
 export function JourneySearchMatch({ journeys }: JourneySearchMatchProps) {
   if (journeys.length === 0) return null;
@@ -44,7 +37,7 @@ export function JourneySearchMatch({ journeys }: JourneySearchMatchProps) {
           <div className="min-w-0">
             <h3 className="font-serif text-base truncate">{journey.name}</h3>
             <p className="text-xs text-muted mt-0.5">
-              {journey.movies.length} movies · {ORDER_LABEL[journey.availableOrders[0]]}
+              {journey.movieCount} movies · {journey.orderLabel}
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 text-sm text-primary shrink-0">

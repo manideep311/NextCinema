@@ -82,7 +82,7 @@ export function Hero({ featuredMovies }: HeroProps) {
             {MOOD_PROMPTS.map((prompt) => (
               <Link
                 key={prompt}
-                href="/dashboard/search"
+                href={`/dashboard/search?q=${encodeURIComponent(prompt)}`}
                 className="text-xs px-3 py-1.5 rounded-full border border-white/10 text-muted hover:text-text hover:border-white/20 transition-colors"
               >
                 {prompt}

@@ -26,3 +26,25 @@ export function writeToStorage<T>(key: string, value: T): void {
     // Intentionally silent — see comment above.
   }
 }
+
+/**
+ * Key for data that belongs to one signed-in user. Scoping by user id
+ * means a second person signing in on the same browser never sees the
+ * first person's data.
+ */
+export function userScopedKey(name: string, userId: string): string {
+  return `cinematch:${name}:${userId}`;
+}
+
+const USER_SCOPED_NAMES = ["recent-searches"] as const;
+
+/** Removes a user's scoped entries (called on sign-out), plus the pre-scoping global key. */
+export function clearUserScopedStorage(userId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    for (const name of USER_SCOPED_NAMES) window.localStorage.removeItem(userScopedKey(name, userId));
+    window.localStorage.removeItem("cinematch:recent-searches");
+  } catch {
+    // Storage disabled — nothing to clear.
+  }
+}

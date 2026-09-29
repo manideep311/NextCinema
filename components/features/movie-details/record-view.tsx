@@ -1,24 +1,29 @@
-﻿"use client";
+"use client";
 
-import { useEffect } from "react";
-import { useRecentlyViewed } from "@/hooks/use-recently-viewed";
-import type { StoredMovie } from "@/types/storage";
+import { useEffect, useRef } from "react";
+import { useAuth } from "@/components/providers/auth-provider";
 
-interface RecordViewProps {
-  movie: Omit<StoredMovie, "addedAt">;
-}
-
-/** Invisible client-side effect component: records a movie as recently
- *  viewed the moment its details page mounts. Split out from the page
- *  itself (a server component) since Local Storage access must happen
- *  client-side. */
-export function RecordView({ movie }: RecordViewProps) {
-  const { addRecentlyViewed } = useRecentlyViewed();
+/**
+ * Invisible: records a signed-in user's view of a movie ("viewed/opened",
+ * for Recently Viewed — not "watched") with a single POST of the movie id.
+ * The server resolves the movie itself and throttles repeat views; the ref
+ * guard keeps React's dev double-mount from sending it twice. Guests
+ * record nothing.
+ */
+export function RecordView({ movieId }: { movieId: number }) {
+  const { user } = useAuth();
+  const recordedRef = useRef<number | null>(null);
 
   useEffect(() => {
-    addRecentlyViewed(movie);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [movie.id]);
+    if (!user || recordedRef.current === movieId) return;
+    recordedRef.current = movieId;
+    fetch("/api/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ movieId }),
+      keepalive: true,
+    }).catch(() => undefined);
+  }, [user, movieId]);
 
   return null;
 }

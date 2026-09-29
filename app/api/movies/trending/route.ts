@@ -1,16 +1,20 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+import { enforceRateLimit, jsonError } from "@/lib/http";
 import { getTrendingMovies } from "@/services/tmdb";
+import { toCardMovie } from "@/lib/movie-mapper";
 
-/** Powers the assistant's "What's trending" quick action. */
-export async function GET() {
-  const data = await getTrendingMovies();
-  const movies = data.results.slice(0, 8).map((movie) => ({
-    id: movie.id,
-    title: movie.title,
-    posterPath: movie.poster_path,
-    voteAverage: movie.vote_average,
-    releaseYear: movie.release_date ? movie.release_date.slice(0, 4) : null,
-  }));
+/** Powers the assistant's "What's trending" action and the Poster Puzzle's Trending pool. Public data. */
+export async function GET(request: NextRequest) {
+  const limited = enforceRateLimit(request, "tmdb-proxy");
+  if (limited) return limited;
 
-  return NextResponse.json({ movies });
+  try {
+    const data = await getTrendingMovies();
+    return NextResponse.json(
+      { movies: data.results.slice(0, 8).map(toCardMovie) },
+      { headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=600" } }
+    );
+  } catch {
+    return jsonError(502, "Couldn't load trending movies right now.");
+  }
 }

@@ -9,7 +9,6 @@ import { useRecentSearches } from "@/hooks/use-recent-searches";
 import type { MovieProfile } from "@/types/movie";
 
 type CardMovie = Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
-type SearchMode = "title" | "mood";
 
 const DEBOUNCE_MS = 300;
 const MOOD_EXAMPLES = ["mind-blowing plot twists", "feel-good comedy", "sad romantic drama", "scary horror"];
@@ -24,7 +23,7 @@ export function CommandPalette() {
   const { isOpen, close } = useCommandPalette();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<CardMovie[] | null>(null);
-  const [mode, setMode] = useState<SearchMode>("title");
+  const [label, setLabel] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { searches, addSearch } = useRecentSearches();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,6 +56,7 @@ export function CommandPalette() {
     // and clobbering its results (see app/dashboard/search/page.tsx for
     // the same fix and full rationale).
     let cancelled = false;
+    const controller = new AbortController();
 
     if (query.trim().length < 2) {
       queueMicrotask(() => {
@@ -76,12 +76,14 @@ export function CommandPalette() {
       setIsLoading(true);
       debounceRef.current = setTimeout(async () => {
         try {
-          const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-          const data = await res.json();
+          const res = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, { signal: controller.signal });
+          const data = res.ok ? await res.json() : { results: [], label: null };
           if (cancelled) return;
           setResults(data.results ?? []);
-          setMode(data.mode === "mood" ? "mood" : "title");
-          addSearch(query);
+          setLabel(data.label ?? null);
+          if (res.ok) addSearch(query);
+        } catch {
+          if (!cancelled) setResults([]);
         } finally {
           if (!cancelled) setIsLoading(false);
         }
@@ -90,6 +92,7 @@ export function CommandPalette() {
 
     return () => {
       cancelled = true;
+      controller.abort();
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -120,6 +123,7 @@ export function CommandPalette() {
               <input
                 ref={inputRef}
                 value={query}
+                maxLength={100}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search movies, actors, genres…"
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
@@ -173,9 +177,7 @@ export function CommandPalette() {
 
               {results !== null && results.length > 0 && (
                 <div>
-                  {mode === "mood" && (
-                    <p className="text-xs text-primary px-1 mb-2">Matched by mood/genre, ranked by rating</p>
-                  )}
+                  {label && <p className="text-xs text-primary px-1 mb-2">{label}</p>}
                   <CompactMovieList movies={results.slice(0, 8)} onNavigate={close} />
                 </div>
               )}

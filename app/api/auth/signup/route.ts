@@ -1,31 +1,29 @@
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { createUser } from "@/services/auth";
-import { setSessionCookie } from "@/lib/auth/session";
+import { NextResponse, type NextRequest } from "next/server";
+import { AccountUnavailableError, createUser } from "@/services/auth";
+import { attachSessionCookie } from "@/lib/auth/session";
+import { signupSchema } from "@/lib/auth/schemas";
+import { enforceRateLimit, jsonError, parseJsonBody, PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 
-const signupSchema = z.object({
-  name: z.string().trim().min(1, "Name is required").max(100),
-  email: z.string().trim().email("Enter a valid email address"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+export async function POST(request: NextRequest) {
+  const crossSite = rejectCrossSite(request);
+  if (crossSite) return crossSite;
 
-export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  const parsed = signupSchema.safeParse(body);
+  // Tight per-IP budget: limits both account spam and using signup to probe which emails exist.
+  const limited = enforceRateLimit(request, "auth:signup");
+  if (limited) return limited;
 
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
-    );
-  }
+  const body = await parseJsonBody(request, signupSchema);
+  if (!body.ok) return body.response;
 
   try {
-    const user = await createUser(parsed.data);
-    await setSessionCookie({ userId: user.id, email: user.email, name: user.name, role: user.role });
-    return NextResponse.json({ user });
+    const user = await createUser(body.data);
+    const response = NextResponse.json({ user }, { headers: PRIVATE_NO_STORE });
+    await attachSessionCookie(response, { userId: user.id, email: user.email, name: user.name, role: user.role });
+    return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not create account.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (error instanceof AccountUnavailableError) {
+      return jsonError(409, error.message, PRIVATE_NO_STORE);
+    }
+    return jsonError(500, "Could not create your account right now — please try again.", PRIVATE_NO_STORE);
   }
 }

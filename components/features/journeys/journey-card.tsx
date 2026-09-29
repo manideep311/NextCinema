@@ -13,10 +13,10 @@ interface JourneyCardProps {
 const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /**
- * A journey's discovery-grid card — a small overlapping poster collage
- * standing in for "franchise artwork" (the app has no separate franchise
- * key-art asset), title, movie count, and progress only when the viewer
- * actually has some (never a fabricated "0/23").
+ * A journey's discovery-grid card — a small overlapping poster collage of
+ * the journey's best-ranked films (the app has no separate key-art asset),
+ * its type, title, movie count, and progress only when the viewer actually
+ * has some (never a fabricated "0/23").
  */
 export function JourneyCard({ journey }: JourneyCardProps) {
   const posters = journey.posterPaths.filter((p): p is string => p !== null).slice(0, 4);
@@ -54,7 +54,7 @@ export function JourneyCard({ journey }: JourneyCardProps) {
         </div>
 
         <div className="p-4">
-          <p className="text-[11px] uppercase tracking-[0.15em] text-primary mb-1">Movie Journey</p>
+          <p className="text-[11px] uppercase tracking-[0.15em] text-primary mb-1">{journey.typeLabel}</p>
           <h3 className="font-serif text-lg leading-snug mb-1 text-balance">{journey.name}</h3>
           <p className="text-xs text-muted mb-3">{journey.totalCount} movies</p>
 

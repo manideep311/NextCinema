@@ -1,19 +1,12 @@
 import "server-only";
 import type { ObjectId } from "mongodb";
+import type { UserRole } from "@/lib/auth/token";
 
-// Document shapes for every MongoDB collection CineMatch AI uses, plus
-// the collection name constants — the single source of truth both
-// lib/db/index.ts (typed collection getters) and lib/db/create-indexes.ts
-// read from.
+// Document shapes for every MongoDB collection NextCinema uses. Collection
+// names live in ./collections.ts and index definitions in ./indexes.ts.
 
-export const COLLECTIONS = {
-  users: "users",
-  favorites: "favorites",
-  watchlist: "watchlist",
-  watchHistory: "watch_history",
-} as const;
-
-export type UserRole = "user" | "premium" | "admin";
+export { COLLECTIONS } from "./collections";
+export type { UserRole };
 
 export interface UserDoc {
   _id: ObjectId;
@@ -25,40 +18,41 @@ export interface UserDoc {
   createdAt: Date;
 }
 
-// Favorites, watchlist, and watch history all store the same
-// denormalized "movie snapshot" (title/poster/rating/year) rather than
-// re-fetching TMDB on every dashboard load — see the same note that used
-// to live on the Postgres/Drizzle version of this file.
+// Favorites, watchlist, history, and watched all store the same small
+// denormalized "movie snapshot" (title/poster/rating/year) so dashboard
+// lists render without a TMDB round-trip per movie. The snapshot is always
+// resolved server-side from TMDB — never taken from the request body.
 
-export interface FavoriteDoc {
-  _id: ObjectId;
-  userId: ObjectId;
+interface MovieSnapshotFields {
   movieId: number;
   title: string;
   posterPath: string | null;
   voteAverage: number;
   releaseYear: string | null;
+}
+
+export interface FavoriteDoc extends MovieSnapshotFields {
+  _id: ObjectId;
+  userId: ObjectId;
   addedAt: Date;
 }
 
-export interface WatchlistDoc {
+export interface WatchlistDoc extends MovieSnapshotFields {
   _id: ObjectId;
   userId: ObjectId;
-  movieId: number;
-  title: string;
-  posterPath: string | null;
-  voteAverage: number;
-  releaseYear: string | null;
   addedAt: Date;
 }
 
-export interface WatchHistoryDoc {
+export interface WatchHistoryDoc extends MovieSnapshotFields {
   _id: ObjectId;
   userId: ObjectId;
-  movieId: number;
-  title: string;
-  posterPath: string | null;
-  voteAverage: number;
-  releaseYear: string | null;
   viewedAt: Date;
+}
+
+export interface WatchedDoc extends MovieSnapshotFields {
+  _id: ObjectId;
+  userId: ObjectId;
+  /** The journey the movie was marked from — lets the dashboard feature "your current journey" without a TMDB lookup. */
+  journeyId: string | null;
+  watchedAt: Date;
 }
