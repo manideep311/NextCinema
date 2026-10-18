@@ -20,6 +20,7 @@ export interface MovieRecommendation {
   posterPath: string | null;
   voteAverage: number;
   releaseYear: string | null;
+  genreIds: number[];
   /** 0–100 normalized similarity to the seed movie (see lib/recommendation-engine.ts). */
   matchScore: number;
   reasons: RecommendationReason[];
@@ -61,6 +62,7 @@ async function computeRecommendations(movieId: number): Promise<MovieRecommendat
     posterPath: movie.posterPath,
     voteAverage: movie.voteAverage,
     releaseYear: movie.releaseYear,
+    genreIds: movie.genreIds,
     matchScore: score,
     reasons,
   }));
@@ -74,7 +76,7 @@ async function computeRecommendations(movieId: number): Promise<MovieRecommendat
  * and the assistant. Personalization (which movie to seed from, what to
  * exclude) happens outside this cache in services/for-you.ts.
  */
-export const getRecommendationsForMovie = unstable_cache(computeRecommendations, ["recommendations-for-movie-v2"], {
+export const getRecommendationsForMovie = unstable_cache(computeRecommendations, ["recommendations-for-movie-v3"], {
   revalidate: TMDB_CACHE.movie,
   tags: ["recommendations"],
 });

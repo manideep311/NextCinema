@@ -2,38 +2,29 @@
 
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GENRE_NAMES } from "@/lib/tmdb-genres";
 
-const GENRES = ["Sci-Fi", "Drama", "Thriller", "Comedy", "Animation"] as const;
-const MOODS = ["Mind-bending", "Cozy", "Heartbreaking", "Feel-good", "Tense"] as const;
-const DECADES = ["2020s", "2010s", "2000s", "1990s"] as const;
+export interface ShowcasePick {
+  id: number;
+  title: string;
+  releaseYear: string | null;
+  genreIds: number[];
+  /** The engine's real 0–100 score for this pick against the seed. */
+  matchScore: number;
+  /** The engine's top reason for this pick. */
+  reason: string | null;
+}
 
-// Small curated demo catalog — tagged with the chip vocabulary above so
-// the landing page can show a convincing, instant "AI match" without a
-// live TMDB round-trip for anonymous visitors.
-const DEMO_CATALOG = [
-  { title: "Arrival", genre: "Sci-Fi", mood: "Mind-bending", decade: "2010s", match: 96, reason: "Shares thoughtful sci-fi themes and a director-driven visual style" },
-  { title: "Everything Everywhere All at Once", genre: "Comedy", mood: "Mind-bending", decade: "2020s", match: 94, reason: "Genre-bending structure with high emotional payoff" },
-  { title: "Past Lives", genre: "Drama", mood: "Heartbreaking", decade: "2020s", match: 93, reason: "Slow-burn emotional drama with restrained, honest writing" },
-  { title: "Parasite", genre: "Thriller", mood: "Tense", decade: "2010s", match: 97, reason: "Genre-crossing tension with sharp social commentary" },
-  { title: "Spirited Away", genre: "Animation", mood: "Cozy", decade: "2000s", match: 95, reason: "Warm, imaginative world-building with rewatch value" },
-  { title: "La La Land", genre: "Drama", mood: "Feel-good", decade: "2010s", match: 91, reason: "Vibrant tone with a bittersweet emotional arc" },
-  { title: "The Matrix", genre: "Sci-Fi", mood: "Tense", decade: "1990s", match: 92, reason: "High-concept sci-fi with genre-defining action" },
-  { title: "Amélie", genre: "Comedy", mood: "Cozy", decade: "2000s", match: 90, reason: "Whimsical tone with a gentle, character-driven story" },
-];
+interface RecommendationShowcaseProps {
+  seed: { title: string; year: string | null } | null;
+  picks: ShowcasePick[];
+}
 
-type Chip = { category: "genre" | "mood" | "decade"; value: string };
+type Chip = { category: "genre" | "decade"; value: string };
 
-function scoreMovie(movie: (typeof DEMO_CATALOG)[number], selected: Chip[]) {
-  if (selected.length === 0) return movie.match;
-  let bonus = 0;
-  for (const chip of selected) {
-    if (chip.category === "genre" && movie.genre === chip.value) bonus += 3;
-    if (chip.category === "mood" && movie.mood === chip.value) bonus += 3;
-    if (chip.category === "decade" && movie.decade === chip.value) bonus += 2;
-  }
-  return Math.min(99, movie.match - 6 + bonus * 2);
+function decadeOf(year: string | null): string | null {
+  return year ? `${year.slice(0, 3)}0s` : null;
 }
 
 function ChipGroup({
@@ -75,35 +66,62 @@ function ChipGroup({
   );
 }
 
-/** Interactive genre/mood/decade picker that produces an instant, explained "AI match" — the landing page's hands-on demo of the recommendation engine. */
-export function RecommendationShowcase() {
+/**
+ * The landing page's hands-on example of the recommendation engine. Every
+ * score and reason shown here is the engine's real output for one fixed
+ * seed movie (computed server-side in live-showcase.tsx and cached) — nothing is
+ * hand-written. The genre and decade filters only narrow that real list;
+ * their options come from the picks themselves.
+ */
+export function RecommendationShowcase({ seed, picks }: RecommendationShowcaseProps) {
   const [selected, setSelected] = useState<Chip[]>([]);
-  const [isThinking, setIsThinking] = useState(false);
-  const [revealKey, setRevealKey] = useState(0);
+
+  const genreOptions = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const pick of picks) for (const id of pick.genreIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    return [...counts.entries()]
+      .filter(([id]) => GENRE_NAMES[id])
+      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+      .slice(0, 5)
+      .map(([id]) => GENRE_NAMES[id]);
+  }, [picks]);
+
+  // The four decades most picks come from, newest first.
+  const decadeOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const pick of picks) {
+      const decade = decadeOf(pick.releaseYear);
+      if (decade) counts.set(decade, (counts.get(decade) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || b[0].localeCompare(a[0]))
+      .slice(0, 4)
+      .map(([decade]) => decade)
+      .sort((a, b) => b.localeCompare(a));
+  }, [picks]);
 
   function toggleChip(chip: Chip) {
-    setIsThinking(true);
     setSelected((current) => {
       const exists = current.some((c) => c.category === chip.category && c.value === chip.value);
       return exists
         ? current.filter((c) => !(c.category === chip.category && c.value === chip.value))
         : [...current.filter((c) => c.category !== chip.category), chip];
     });
-    setTimeout(() => {
-      setIsThinking(false);
-      setRevealKey((k) => k + 1);
-    }, 650);
   }
 
   const results = useMemo(() => {
-    return [...DEMO_CATALOG]
-      .map((movie) => ({ ...movie, computedScore: scoreMovie(movie, selected) }))
-      .sort((a, b) => b.computedScore - a.computedScore)
+    const genre = selected.find((c) => c.category === "genre")?.value;
+    const decade = selected.find((c) => c.category === "decade")?.value;
+    return picks
+      .filter((pick) => !genre || pick.genreIds.some((id) => GENRE_NAMES[id] === genre))
+      .filter((pick) => !decade || decadeOf(pick.releaseYear) === decade)
       .slice(0, 3);
-  }, [selected]);
+  }, [picks, selected]);
+
+  const filterKey = selected.map((c) => `${c.category}:${c.value}`).join("|") || "all";
 
   return (
-    <section id="ai-preview" className="max-w-5xl mx-auto px-6 py-24">
+    <section id="live-example" className="max-w-5xl mx-auto px-6 py-24">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -112,84 +130,84 @@ export function RecommendationShowcase() {
         className="text-center mb-12"
       >
         <h2 className="font-serif text-3xl md:text-4xl mb-4">
-          Tell us what you&apos;re <span className="gradient-text">in the mood for</span>
+          Every pick comes with <span className="gradient-text">a reason</span>
         </h2>
         <p className="text-muted max-w-xl mx-auto">
-          Pick a genre, mood, or decade and watch the picks update instantly — every one explained.
+          {seed
+            ? `Live output from the recommendation engine for ${seed.title}${seed.year ? ` (${seed.year})` : ""}. Filter by genre or decade — the scores and reasons are computed, not written by hand.`
+            : "Live output from the recommendation engine."}
         </p>
       </motion.div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="glass rounded-2xl p-6 space-y-6"
-        >
-          <ChipGroup label="Genre" options={GENRES} category="genre" selected={selected} onToggle={toggleChip} />
-          <ChipGroup label="Mood" options={MOODS} category="mood" selected={selected} onToggle={toggleChip} />
-          <ChipGroup label="Decade" options={DECADES} category="decade" selected={selected} onToggle={toggleChip} />
-        </motion.div>
+      {picks.length === 0 ? (
+        <div className="glass rounded-2xl p-6 text-center text-sm text-muted">
+          The live example couldn&apos;t load right now.
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-8">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="glass rounded-2xl p-6 space-y-6"
+          >
+            <ChipGroup label="Genre" options={genreOptions} category="genre" selected={selected} onToggle={toggleChip} />
+            <ChipGroup label="Decade" options={decadeOptions} category="decade" selected={selected} onToggle={toggleChip} />
+          </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="glass rounded-2xl p-6 min-h-[280px] flex flex-col"
-        >
-          <div className="flex items-center gap-2 text-sm text-muted mb-4">
-            {isThinking ? "Finding matches…" : "Top matches"}
-          </div>
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="glass rounded-2xl p-6 min-h-[280px] flex flex-col"
+          >
+            <div className="flex items-center gap-2 text-sm text-muted mb-4">Top matches</div>
 
-          <AnimatePresence mode="wait">
-            {isThinking ? (
+            <AnimatePresence mode="wait">
               <motion.div
-                key="thinking"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex-1 flex items-center justify-center text-muted gap-2"
-              >
-                <Loader2 className="size-5 animate-spin text-primary" />
-                <span className="text-sm">One moment…</span>
-              </motion.div>
-            ) : (
-              <motion.div
-                key={revealKey}
+                key={filterKey}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="space-y-4"
               >
-                {results.map((movie, i) => (
-                  <motion.div
-                    key={movie.title}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-sm">{movie.title}</span>
-                      <span className="text-accent text-sm font-semibold">{movie.computedScore}%</span>
-                    </div>
-                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${movie.computedScore}%` }}
-                        transition={{ duration: 0.6, ease: "easeOut" }}
-                        className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
-                      />
-                    </div>
-                    <p className="text-xs text-muted">{movie.reason}</p>
-                  </motion.div>
-                ))}
+                {results.length === 0 ? (
+                  <p className="text-sm text-muted">No picks match both filters — try another combination.</p>
+                ) : (
+                  results.map((pick, i) => (
+                    <motion.div
+                      key={pick.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.08 }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-medium text-sm">
+                          {pick.title}
+                          {pick.releaseYear && <span className="text-muted font-normal"> ({pick.releaseYear})</span>}
+                        </span>
+                        <span className="text-accent text-sm font-semibold">{pick.matchScore}%</span>
+                      </div>
+                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mb-1.5">
+                        <motion.div
+                          initial={{ scaleX: 0 }}
+                          animate={{ scaleX: pick.matchScore / 100 }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
+                          style={{ transformOrigin: "left" }}
+                          className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                        />
+                      </div>
+                      {pick.reason && <p className="text-xs text-muted">{pick.reason}</p>}
+                    </motion.div>
+                  ))
+                )}
               </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </div>
+            </AnimatePresence>
+          </motion.div>
+        </div>
+      )}
     </section>
   );
 }

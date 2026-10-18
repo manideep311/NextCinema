@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { discoverMovies, getTrendingMovies, TMDB_CACHE } from "@/services/tmdb";
 import { WEIGHTS } from "@/lib/recommendation-engine";
 import { SUPPORTED_SEARCH_LANGUAGES } from "@/lib/search/interpret";
@@ -7,7 +8,7 @@ import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/features/landing/hero";
 import { TrustedBy } from "@/components/features/landing/trusted-by";
 import { StatsSection, type LandingStat } from "@/components/features/landing/stats-section";
-import { RecommendationShowcase } from "@/components/features/landing/recommendation-showcase";
+import { LiveShowcase } from "@/components/features/landing/live-showcase";
 import { FeatureCards } from "@/components/features/landing/feature-cards";
 import { HowItWorks } from "@/components/features/landing/how-it-works";
 import { Testimonials } from "@/components/features/landing/testimonials";
@@ -46,7 +47,9 @@ export default async function Home() {
       <Hero featuredMovies={featuredMovies} />
       <TrustedBy />
       <StatsSection stats={stats} />
-      <RecommendationShowcase />
+      <Suspense fallback={null}>
+        <LiveShowcase />
+      </Suspense>
       <FeatureCards />
       <HowItWorks />
       <Testimonials />
