@@ -5,7 +5,7 @@ import { listAllWatchedIds } from "@/services/watched";
 import { getRecommendationsForMovie, MAX_RECOMMENDATIONS } from "@/services/recommendations";
 import { getMovieWithExtras, getPopularMovies } from "@/services/tmdb";
 import { findJourneyForMovie } from "@/services/journeys";
-import type { RecommendationReason } from "@/types/movie";
+import type { RecommendationReason, SignalExplanation } from "@/types/movie";
 
 export interface ForYouMovie {
   id: number;
@@ -19,6 +19,8 @@ export interface ForYouMovie {
    */
   matchScore: number | null;
   reasons: RecommendationReason[];
+  /** The favourite this pick was scored against, with the per-signal breakdown — null on cold start. */
+  explanation: { comparedWith: string; signals: SignalExplanation[] } | null;
 }
 
 /**
@@ -51,6 +53,7 @@ async function popularFallback(limit: number): Promise<ForYouResult> {
         releaseYear: movie.release_date ? movie.release_date.slice(0, 4) : null,
         matchScore: null,
         reasons: [],
+        explanation: null,
       })),
   };
 }
@@ -73,7 +76,10 @@ async function computeForYou(userId: string, limit: number): Promise<ForYouResul
   // Personal filtering happens here, outside the shared cache: don't
   // recommend what the user already favorited or has marked watched.
   const exclude = new Set([...favoriteIds, ...watchedIds]);
-  const movies = recommendations.filter((movie) => !exclude.has(movie.id)).slice(0, limit);
+  const movies = recommendations
+    .filter((movie) => !exclude.has(movie.id))
+    .slice(0, limit)
+    .map((movie) => ({ ...movie, explanation: { comparedWith: seed.title, signals: movie.explanation } }));
 
   const journey = await findJourneyForMovie({
     id: seed.id,

@@ -9,7 +9,7 @@ import { MovieCard } from "@/components/features/movies/movie-card";
  * each card — this is the "explain why" surface the whole product is
  * built around, so it deserves more than a bare match score.
  */
-export function SimilarMovies({ recommendations }: { recommendations: MovieRecommendation[] }) {
+export function SimilarMovies({ recommendations, seedTitle }: { recommendations: MovieRecommendation[]; seedTitle: string }) {
   if (recommendations.length === 0) return null;
 
   return (
@@ -22,7 +22,12 @@ export function SimilarMovies({ recommendations }: { recommendations: MovieRecom
           viewport={{ once: true }}
           transition={{ duration: 0.3, delay: i * 0.05 }}
         >
-          <MovieCard movie={movie} matchScore={movie.matchScore} reason={movie.reasons[0]?.label} />
+          <MovieCard
+            movie={movie}
+            matchScore={movie.matchScore}
+            reason={movie.reasons[0]?.label}
+            explanation={{ comparedWith: seedTitle, signals: movie.explanation }}
+          />
         </motion.div>
       ))}
     </div>

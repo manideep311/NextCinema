@@ -60,6 +60,9 @@ export async function ForYouSection({ userId, limit = 10 }: { userId: string; li
         reasons={Object.fromEntries(
           result.movies.flatMap((movie) => (movie.reasons[0] ? [[movie.id, movie.reasons[0].label]] : []))
         )}
+        explanations={Object.fromEntries(
+          result.movies.flatMap((movie) => (movie.explanation ? [[movie.id, movie.explanation]] : []))
+        )}
       />
     </DashboardSection>
   );

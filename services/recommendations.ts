@@ -4,7 +4,7 @@ import { discoverMovies, getMovieRecommendations, getMovieWithExtras, getSimilar
 import { buildCandidatePool, seedDiscoverGenres } from "@/lib/candidate-pool";
 import { mapExtrasToProfile } from "@/lib/movie-mapper";
 import { recommendMovies } from "@/lib/recommendation-engine";
-import type { RecommendationReason } from "@/types/movie";
+import type { RecommendationReason, SignalExplanation } from "@/types/movie";
 import type { TmdbMovie, TmdbPaginatedResponse } from "@/types/tmdb";
 
 /** Enough for the Recommendations page; other surfaces slice what they need. */
@@ -21,6 +21,8 @@ export interface MovieRecommendation {
   /** 0–100 normalized similarity to the seed movie (see lib/recommendation-engine.ts). */
   matchScore: number;
   reasons: RecommendationReason[];
+  /** Per-signal breakdown of matchScore (the "Why this?" panel). */
+  explanation: SignalExplanation[];
 }
 
 const NO_RESULTS: TmdbPaginatedResponse<TmdbMovie> = { page: 1, results: [], total_pages: 0, total_results: 0 };
@@ -56,7 +58,7 @@ async function computeRecommendations(movieId: number): Promise<MovieRecommendat
   const settled = await Promise.allSettled(candidates.map((movie) => getMovieWithExtras(movie.id)));
   const profiles = settled.flatMap((result) => (result.status === "fulfilled" ? [mapExtrasToProfile(result.value)] : []));
 
-  return recommendMovies(baseProfile, profiles, MAX_RECOMMENDATIONS).map(({ movie, score, reasons }) => ({
+  return recommendMovies(baseProfile, profiles, MAX_RECOMMENDATIONS).map(({ movie, score, reasons, explanation }) => ({
     id: movie.id,
     title: movie.title,
     posterPath: movie.posterPath,
@@ -65,6 +67,7 @@ async function computeRecommendations(movieId: number): Promise<MovieRecommendat
     genreIds: movie.genreIds,
     matchScore: score,
     reasons,
+    explanation,
   }));
 }
 
@@ -76,7 +79,7 @@ async function computeRecommendations(movieId: number): Promise<MovieRecommendat
  * and the assistant. Personalization (which movie to seed from, what to
  * exclude) happens outside this cache in services/for-you.ts.
  */
-export const getRecommendationsForMovie = unstable_cache(computeRecommendations, ["recommendations-for-movie-v4"], {
+export const getRecommendationsForMovie = unstable_cache(computeRecommendations, ["recommendations-for-movie-v5"], {
   revalidate: TMDB_CACHE.movie,
   tags: ["recommendations"],
 });

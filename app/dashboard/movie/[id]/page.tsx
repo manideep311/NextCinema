@@ -28,7 +28,7 @@ interface MovieDetailsPageProps {
 const SIMILAR_MOVIES_COUNT = 5;
 
 /** Streams in after the main content: ranked + explained, from the shared per-movie recommendation cache. */
-async function SimilarMoviesSection({ movieId }: { movieId: number }) {
+async function SimilarMoviesSection({ movieId, title }: { movieId: number; title: string }) {
   const recommendations = await getRecommendationsForMovie(movieId).catch(() => []);
   const similar = recommendations.slice(0, SIMILAR_MOVIES_COUNT);
   if (similar.length === 0) return null;
@@ -37,7 +37,7 @@ async function SimilarMoviesSection({ movieId }: { movieId: number }) {
     <div>
       <h2 className="font-serif text-xl mb-3">Similar Movies</h2>
       <p className="text-muted text-sm mb-4">Ranked and explained by NextCinema, not just TMDB&apos;s raw list.</p>
-      <SimilarMovies recommendations={similar} />
+      <SimilarMovies recommendations={similar} seedTitle={title} />
     </div>
   );
 }
@@ -155,7 +155,7 @@ export default async function MovieDetailsPage({ params }: MovieDetailsPageProps
         )}
 
         <Suspense fallback={null}>
-          <SimilarMoviesSection movieId={movieId} />
+          <SimilarMoviesSection movieId={movieId} title={profile.title} />
         </Suspense>
       </div>
     </div>

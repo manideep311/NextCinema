@@ -173,7 +173,7 @@ function scoreAgainst(prepared: PreparedBase, candidate: MovieProfile): { scored
   const reasons = buildReasons(prepared, candidate, signals, candidateKeywords, candidateCast, candidateDirectors);
 
   return {
-    scored: { movie: candidate, score: Math.round(normalized * 100), reasons },
+    scored: { movie: candidate, score: Math.round(normalized * 100), reasons, explanation },
     breakdown: { signals, explanation, raw, applicableWeight, normalized },
   };
 }

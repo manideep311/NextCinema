@@ -49,4 +49,6 @@ export interface ScoredMovie {
   /** 0–100, higher = more similar to the base movie */
   score: number;
   reasons: RecommendationReason[];
+  /** Per-signal breakdown of `score`, for the "Why this?" panel. */
+  explanation: SignalExplanation[];
 }
