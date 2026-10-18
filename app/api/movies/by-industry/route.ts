@@ -3,7 +3,8 @@ import { z } from "zod";
 import { getMoviesByLanguage, getPopularMovies } from "@/services/tmdb";
 import { INDUSTRIES, NAMED_INDUSTRY_LANGUAGES } from "@/lib/industries";
 import { enforceRateLimit, jsonError } from "@/lib/http";
-import { pageParamSchema, parseOptionalParam } from "@/lib/validation";
+import { MAX_TMDB_PAGE, pageParamSchema, parseOptionalParam } from "@/lib/validation";
+import { otherIndustryTmdbPages } from "@/lib/tmdb-pages";
 import { toCardMovie } from "@/lib/movie-mapper";
 import type { TmdbMovie } from "@/types/tmdb";
 
@@ -32,19 +33,22 @@ export async function GET(request: NextRequest) {
     if (config.language) {
       const data = await getMoviesByLanguage(config.language, page.value);
       return NextResponse.json(
-        { movies: dedupeById(data.results).map(toCardMovie), hasMore: page.value < Math.min(data.total_pages, 500) },
+        { movies: dedupeById(data.results).map(toCardMovie), hasMore: page.value < Math.min(data.total_pages, MAX_TMDB_PAGE) },
         { headers: cacheHeaders }
       );
     }
 
-    // "Other": TMDB's discover can't filter "language NOT IN (...)", so pull
-    // two popularity pages and filter locally.
-    const [pageA, pageB] = await Promise.all([getPopularMovies(page.value * 2 - 1), getPopularMovies(page.value * 2)]);
+    // "Other": two popularity pages per app page, filtered locally (see otherIndustryTmdbPages).
+    const tmdbPages = otherIndustryTmdbPages(page.value);
+    if (!tmdbPages) return NextResponse.json({ movies: [], hasMore: false }, { headers: cacheHeaders });
+
+    const [firstPage, secondPage] = tmdbPages;
+    const [pageA, pageB] = await Promise.all([getPopularMovies(firstPage), getPopularMovies(secondPage)]);
     const filtered = dedupeById([...pageA.results, ...pageB.results]).filter(
       (movie) => !NAMED_INDUSTRY_LANGUAGES.includes(movie.original_language)
     );
     return NextResponse.json(
-      { movies: filtered.map(toCardMovie), hasMore: page.value * 2 < Math.min(pageB.total_pages, 500) },
+      { movies: filtered.map(toCardMovie), hasMore: secondPage < Math.min(pageB.total_pages, MAX_TMDB_PAGE) },
       { headers: cacheHeaders }
     );
   } catch {
