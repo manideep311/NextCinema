@@ -13,7 +13,7 @@ import { CastList } from "@/components/features/movie-details/cast-list";
 import { TrailerEmbed } from "@/components/features/movie-details/trailer-embed";
 import { hasTrailer } from "@/lib/movie-details/trailer";
 import { MovieFacts, hasMovieFacts } from "@/components/features/movie-details/movie-facts";
-import { AiSummary } from "@/components/features/movie-details/ai-summary";
+import { QuickSummary } from "@/components/features/movie-details/quick-summary";
 import { SimilarMovies } from "@/components/features/movie-details/similar-movies";
 import { WatchProviders, hasWatchProviders } from "@/components/features/movie-details/watch-providers";
 import { RecordView } from "@/components/features/movie-details/record-view";
@@ -118,7 +118,7 @@ export default async function MovieDetailsPage({ params }: MovieDetailsPageProps
         <div>
           <h2 className="font-serif text-xl mb-3">Overview</h2>
           <p className="text-muted leading-relaxed max-w-3xl mb-4">{movieData.overview}</p>
-          <AiSummary movie={profile} />
+          <QuickSummary movie={profile} />
         </div>
 
         {movieData.credits.cast.length > 0 && (
