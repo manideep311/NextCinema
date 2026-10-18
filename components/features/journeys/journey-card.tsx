@@ -5,12 +5,11 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import type { JourneyCardPreview } from "@/services/journeys";
 import { JourneyProgress } from "@/components/features/journeys/journey-progress";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface JourneyCardProps {
   journey: JourneyCardPreview;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /**
  * A journey's discovery-grid card — a small overlapping poster collage of
@@ -41,7 +40,7 @@ export function JourneyCard({ journey }: JourneyCardProps) {
                   }}
                   className="relative w-16 sm:w-20 aspect-[2/3] rounded-md overflow-hidden ring-1 ring-white/10 shadow-lg shrink-0 transition-transform duration-300 group-hover/journey:translate-y-[-2px]"
                 >
-                  <Image src={`${IMAGE_BASE_URL}/w342${poster}`} alt="" fill sizes="80px" className="object-cover" />
+                  <Image src={`${TMDB_IMAGE_BASE_URL}/w342${poster}`} alt="" fill sizes="80px" className="object-cover" />
                 </div>
               ))}
             </div>

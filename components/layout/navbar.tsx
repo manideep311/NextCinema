@@ -10,8 +10,9 @@ import { Logo } from "@/components/ui/logo";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
-  { label: "How it works", href: "#ai-preview" },
-  { label: "Reviews", href: "#testimonials" },
+  { label: "How it works", href: "#how-it-works" },
+  { label: "Live example", href: "#live-example" },
+  { label: "FAQ", href: "#faq" },
 ];
 
 /**

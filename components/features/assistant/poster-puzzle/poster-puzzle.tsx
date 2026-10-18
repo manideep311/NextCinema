@@ -9,8 +9,7 @@ import { PuzzleBoard } from "@/components/features/assistant/poster-puzzle/puzzl
 import { PuzzleControls } from "@/components/features/assistant/poster-puzzle/puzzle-controls";
 import { PuzzleResult } from "@/components/features/assistant/poster-puzzle/puzzle-result";
 import { PuzzleSourceSelect } from "@/components/features/assistant/poster-puzzle/puzzle-source-select";
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface PosterPuzzleProps {
   open: boolean;
@@ -37,7 +36,7 @@ export function PosterPuzzle({ open, onClose }: PosterPuzzleProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  const posterUrl = game.movie?.posterPath ? `${IMAGE_BASE_URL}/w500${game.movie.posterPath}` : null;
+  const posterUrl = game.movie?.posterPath ? `${TMDB_IMAGE_BASE_URL}/w500${game.movie.posterPath}` : null;
   const isSolved = game.status === "solved";
   // Collapses "ready" and "playing" into one key so the board/controls
   // never remount between them — only genuinely distinct phases (intro,

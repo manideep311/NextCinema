@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { getOttDeepLink } from "@/lib/ott-providers";
 import type { TmdbWatchProviderRegion, TmdbWatchProvider } from "@/types/tmdb";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface WatchProvidersProps {
   /** The viewer's region entry from TMDB's watch/providers response (region
@@ -9,8 +10,6 @@ interface WatchProvidersProps {
   /** Movie title, used to build each platform's direct search link. */
   movieTitle: string;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /** Used by the page to decide whether to render the "Where to Watch"
  *  heading at all — TMDB sometimes returns a region entry with just a
@@ -64,7 +63,7 @@ export function WatchProviders({ region, movieTitle }: WatchProvidersProps) {
           >
             {provider.logo_path ? (
               <Image
-                src={`${IMAGE_BASE_URL}/w92${provider.logo_path}`}
+                src={`${TMDB_IMAGE_BASE_URL}/w92${provider.logo_path}`}
                 alt={provider.provider_name}
                 width={44}
                 height={44}

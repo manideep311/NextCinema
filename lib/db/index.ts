@@ -8,18 +8,26 @@ import {
   type WatchHistoryDoc,
   type WatchedDoc,
 } from "@/lib/db/schema";
-
-const DEFAULT_DB_NAME = "cinematch";
+import { memoizeConnection, type ConnectionSlot } from "@/lib/db/connection-cache";
+import { databaseName } from "@/lib/db/config";
 
 // Next.js dev mode hot-reloads route modules on every save, which would
 // otherwise open a fresh MongoClient (and a fresh TCP connection) each
-// time. Caching the connection promise on `global` survives module
-// reloads in dev; in production each server instance just gets its own
-// singleton via the module-level `clientPromise`.
-let clientPromise: Promise<MongoClient> | undefined;
+// time. Keeping the connection slot on `global` survives module reloads
+// in dev; in production each server instance just gets its own
+// module-level slot. Either way a failed connect is not cached.
+const moduleSlot: ConnectionSlot<MongoClient> = {};
 
 declare global {
-  var _mongoClientPromise: Promise<MongoClient> | undefined;
+  var _mongoClientSlot: ConnectionSlot<MongoClient> | undefined;
+}
+
+function connectClient(uri: string): Promise<MongoClient> {
+  const client = new MongoClient(uri);
+  return client.connect().catch(async (error: unknown) => {
+    await client.close().catch(() => {});
+    throw error;
+  });
 }
 
 function getClientPromise(): Promise<MongoClient> {
@@ -31,21 +39,23 @@ function getClientPromise(): Promise<MongoClient> {
     );
   }
 
-  if (process.env.NODE_ENV === "development") {
-    const cached = global._mongoClientPromise ?? new MongoClient(uri).connect();
-    global._mongoClientPromise = cached;
-    return cached;
-  }
+  const slot = process.env.NODE_ENV === "development" ? (global._mongoClientSlot ??= {}) : moduleSlot;
+  return memoizeConnection(slot, () => connectClient(uri));
+}
 
-  const promise = clientPromise ?? new MongoClient(uri).connect();
-  clientPromise = promise;
-  return promise;
+/** Closes the shared client so a test or script process can exit; the next getDb() reconnects. */
+export async function closeDb(): Promise<void> {
+  const slot = process.env.NODE_ENV === "development" ? global._mongoClientSlot : moduleSlot;
+  const pending = slot?.current;
+  if (!slot || !pending) return;
+  slot.current = undefined;
+  await (await pending.catch(() => null))?.close();
 }
 
 /** The MongoDB database handle — lazily connects on first use. */
 export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
-  return client.db(process.env.MONGODB_DB || DEFAULT_DB_NAME);
+  return client.db(databaseName());
 }
 
 export async function getUsersCollection(): Promise<Collection<UserDoc>> {

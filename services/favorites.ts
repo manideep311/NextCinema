@@ -52,14 +52,16 @@ export async function listFavoriteIds(userId: string): Promise<number[]> {
   return docs.map((doc) => doc.movieId);
 }
 
-/** The For You seed — newest favorite only, served by the (userId, addedAt) index. */
-export async function getLatestFavorite(userId: string): Promise<{ id: number; title: string } | null> {
+/** The For You seeds — the newest `limit` favorites, newest first, served by the (userId, addedAt) index. */
+export async function listRecentFavorites(userId: string, limit: number): Promise<{ id: number; title: string }[]> {
   const favorites = await getFavoritesCollection();
-  const doc = await favorites.findOne(
-    { userId: userObjectId(userId) },
-    { sort: { addedAt: -1 }, projection: { _id: 0, movieId: 1, title: 1 } }
-  );
-  return doc ? { id: doc.movieId, title: doc.title } : null;
+  const docs = await favorites
+    .find({ userId: userObjectId(userId) })
+    .sort({ addedAt: -1 })
+    .limit(limit)
+    .project<{ movieId: number; title: string }>({ _id: 0, movieId: 1, title: 1 })
+    .toArray();
+  return docs.map((doc) => ({ id: doc.movieId, title: doc.title }));
 }
 
 export async function countFavorites(userId: string): Promise<number> {

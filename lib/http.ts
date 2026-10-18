@@ -111,15 +111,31 @@ export function rejectCrossSite(request: Request): NextResponse | null {
 }
 
 /**
- * Best-effort client IP. Behind Vercel/most proxies the first
- * `x-forwarded-for` entry is the client; locally there's no proxy, so the
- * header may be absent and every request shares the "local" bucket.
+ * Best-effort client IP, used only as a rate-limit key.
+ *
+ * Trust assumption: these headers are only meaningful when the app sits
+ * behind a proxy that sets or overwrites them — a client can send any of
+ * them itself. In order of preference:
+ *
+ * 1. `x-vercel-forwarded-for` — set by Vercel's edge, which replaces any
+ *    client-sent value, so it can't be spoofed on Vercel.
+ * 2. `x-real-ip` — set by Vercel and by common reverse proxies (nginx).
+ * 3. The *last* `x-forwarded-for` entry — the address the nearest proxy
+ *    saw. The first entry is whatever the client claimed, so it's never
+ *    used (that would let anyone dodge a limit by sending a fresh value).
+ *
+ * Self-hosted without a proxy, all three are client-controlled and the
+ * limits are best-effort only; locally there are none and every request
+ * shares the "local" bucket.
  */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  const first = forwarded?.split(",")[0]?.trim();
-  if (first) return first.slice(0, 64);
-  return request.headers.get("x-real-ip")?.trim().slice(0, 64) || "local";
+  const clean = (value: string | null | undefined) => value?.trim().slice(0, 64) || null;
+  const vercel = clean(request.headers.get("x-vercel-forwarded-for")?.split(",")[0]);
+  if (vercel) return vercel;
+  const realIp = clean(request.headers.get("x-real-ip"));
+  if (realIp) return realIp;
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",");
+  return clean(forwarded?.[forwarded.length - 1]) ?? "local";
 }
 
 /**

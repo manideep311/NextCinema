@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
+  readSessionCookie,
   sessionCookieOptions,
   shouldRenewSession,
   signSessionToken,
@@ -8,6 +10,7 @@ import {
 } from "@/lib/auth/token";
 import { isProtectedPath } from "@/lib/auth/protected-routes";
 import { INTRO_COOKIE, INTRO_HEADER } from "@/lib/intro";
+import { getTokenVersion } from "@/services/auth";
 
 /**
  * Runs before page requests (Next.js 16's replacement for middleware.ts).
@@ -18,20 +21,26 @@ import { INTRO_COOKIE, INTRO_HEADER } from "@/lib/intro";
  *    session itself, so authorization never depends on this file.
  * 2. Sliding session: a valid token older than a day is re-issued, so active
  *    users stay signed in while idle sessions still expire after 7 days.
- * 3. Stale cookies (expired/tampered/foreign tokens) are cleared.
+ *    Before re-issuing, the token's version is checked against the user's
+ *    current `tokenVersion`; a revoked token (signed out since) is cleared
+ *    instead of renewed.
+ * 3. Stale cookies (expired/tampered/foreign tokens) are cleared, and a
+ *    valid pre-rename `cinematch_session` cookie is moved to the current name.
  * 4. Marks the browsing session as having seen the opening intro, so the
  *    root layout renders it only on the session's first page load.
  */
 export async function proxy(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const { token, legacy } = readSessionCookie(request.cookies);
   const session = token ? await verifySessionToken(token) : null;
+  const expire = (response: NextResponse, name: string) =>
+    response.cookies.set(name, "", { ...sessionCookieOptions(0), expires: new Date(0) });
   const { pathname, search } = request.nextUrl;
 
   if (!session && isProtectedPath(pathname)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", `${pathname}${search}`);
     const redirect = NextResponse.redirect(loginUrl);
-    if (token) redirect.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
+    if (token) expire(redirect, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
     return redirect;
   }
 
@@ -48,15 +57,27 @@ export async function proxy(request: NextRequest) {
   }
 
   if (token && !session) {
-    response.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
-  } else if (session && shouldRenewSession(session)) {
-    const renewed = await signSessionToken({
-      userId: session.userId,
-      email: session.email,
-      name: session.name,
-      role: session.role,
-    });
-    response.cookies.set(SESSION_COOKIE, renewed, sessionCookieOptions());
+    expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
+  } else if (session && (legacy || shouldRenewSession(session))) {
+    // null = the lookup failed: leave the token alone (it still expires on its own) rather than sign anyone out.
+    const currentVersion = await getTokenVersion(session.userId).then(
+      (version) => ({ version }),
+      () => null
+    );
+    if (currentVersion && currentVersion.version !== session.tokenVersion) {
+      // Revoked (or the account is gone): clear it instead of extending it.
+      expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
+    } else if (currentVersion) {
+      const renewed = await signSessionToken({
+        userId: session.userId,
+        email: session.email,
+        name: session.name,
+        role: session.role,
+        tokenVersion: session.tokenVersion,
+      });
+      response.cookies.set(SESSION_COOKIE, renewed, sessionCookieOptions());
+      if (legacy) expire(response, LEGACY_SESSION_COOKIE);
+    }
   }
 
   return response;

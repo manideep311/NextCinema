@@ -85,7 +85,7 @@
 
   /*
    * Also kept for the same reason — but a gradient-clipped headline reads
-   * as "AI SaaS," so this now just applies the single accent color instead
+   * as a generic SaaS template, so this now just applies the single accent color instead
    * of a purple→cyan gradient.
    */
   .gradient-text {

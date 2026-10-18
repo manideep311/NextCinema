@@ -8,6 +8,7 @@ import { Sparkles, TrendingUp, Gift, Search, X, Loader2, Star, ArrowRight, Puzzl
 import { GREETING_LINES, THINKING_LINES, randomLine } from "@/lib/assistant-lines";
 import { CompactMovieList } from "@/components/features/movies/compact-movie-list";
 import type { MovieProfile, RecommendationReason } from "@/types/movie";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 type CardMovie = Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
 interface RecommendedMovie extends CardMovie {
@@ -26,8 +27,6 @@ type Screen =
   | { kind: "surprise"; movie: CardMovie }
   | { kind: "search"; query: string; movies: CardMovie[] }
   | { kind: "error"; action: ActionKind; message: string };
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 interface AssistantPanelProps {
   onClose: () => void;
@@ -260,7 +259,7 @@ function SpotlightCard({
     >
       <div className="relative w-16 aspect-[2/3] rounded-md overflow-hidden shrink-0 bg-surface">
         {movie.posterPath ? (
-          <Image src={`${IMAGE_BASE_URL}/w185${movie.posterPath}`} alt={movie.title} fill className="object-cover" />
+          <Image src={`${TMDB_IMAGE_BASE_URL}/w185${movie.posterPath}`} alt={movie.title} fill className="object-cover" />
         ) : null}
       </div>
       <div className="min-w-0 flex-1">

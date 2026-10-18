@@ -9,6 +9,7 @@ import type {
   ResolvedJourneyMovie,
 } from "@/types/journey";
 import { normalizeText } from "@/lib/journeys/definitions";
+import { bayesianRating } from "@/lib/rating";
 
 // The Journey engine — pure and deterministic. Takes a definition plus
 // candidate movies (already fetched from TMDB by services/journeys) and
@@ -56,8 +57,6 @@ const DEFAULT_RANKING: Required<Omit<JourneyRanking, "priorVotes">> = {
   recency: 0,
 };
 
-/** Global mean rating used as the Bayesian prior. */
-const PRIOR_MEAN_RATING = 6.5;
 const DEFAULT_PRIOR_VOTES = 500;
 const CONSENSUS_REFERENCE_VOTES = 20_000;
 const POPULARITY_REFERENCE = 200;
@@ -138,11 +137,6 @@ export function rulesToDiscoverParams(rules: JourneyRules | undefined, nowMs: nu
 
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
-}
-
-/** Rating pulled toward the global mean in proportion to how few votes back it. */
-export function bayesianRating(voteAverage: number, voteCount: number, priorVotes: number): number {
-  return (voteCount / (voteCount + priorVotes)) * voteAverage + (priorVotes / (voteCount + priorVotes)) * PRIOR_MEAN_RATING;
 }
 
 /** Deterministic 0–1 ranking score from rating, consensus, popularity, and recency. */

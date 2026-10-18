@@ -8,6 +8,8 @@ import type { MovieProfile } from "@/types/movie";
 import { FavoriteButton } from "@/components/features/movies/favorite-button";
 import { WatchlistButton } from "@/components/features/movies/watchlist-button";
 import { moviePosterLayoutId, POSTER_TRANSITION } from "@/components/motion/movie-poster-transition";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
+import { WhyThis, type MatchExplanation } from "@/components/features/movies/why-this";
 
 interface MovieCardProps {
   movie: Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
@@ -16,9 +18,9 @@ interface MovieCardProps {
    *  present (SimilarMovies / For You already have this from the
    *  recommendation engine; plain grids like Trending don't, and that's fine). */
   reason?: string;
+  /** Per-signal breakdown behind `matchScore` — adds a "Why this?" panel under the card. */
+  explanation?: MatchExplanation;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /**
  * Poster-forward movie card — the image is the card. Title and match score
@@ -32,7 +34,20 @@ const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
  * Hover/tap feedback stays on CSS transforms (cheap, GPU-friendly);
  * Framer is reserved for the one thing CSS can't do, the cross-page FLIP.
  */
-export function MovieCard({ movie, matchScore, reason }: MovieCardProps) {
+export function MovieCard({ movie, matchScore, reason, explanation }: MovieCardProps) {
+  const card = <PosterLink movie={movie} matchScore={matchScore} reason={reason} />;
+  if (!explanation || matchScore === undefined) return card;
+
+  // The panel sits outside the link so opening it never navigates.
+  return (
+    <div>
+      {card}
+      <WhyThis explanation={explanation} score={matchScore} />
+    </div>
+  );
+}
+
+function PosterLink({ movie, matchScore, reason }: Omit<MovieCardProps, "explanation">) {
   const reducedMotion = useReducedMotion();
 
   return (
@@ -51,7 +66,7 @@ export function MovieCard({ movie, matchScore, reason }: MovieCardProps) {
               className="absolute inset-0 overflow-hidden"
             >
               <Image
-                src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
+                src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
                 alt={movie.title}
                 fill
                 sizes="(max-width: 768px) 45vw, 200px"

@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Image from "next/image";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface PosterTileProps {
   title: string;
@@ -11,8 +12,6 @@ interface PosterTileProps {
   rotate?: number;
   delay?: number;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /**
  * A single poster in the hero's asymmetric collage. Physical-poster feel —
@@ -35,7 +34,7 @@ export function FloatingMovieCard({ title, posterPath, className = "", rotate = 
     >
       <div className="relative aspect-[2/3] bg-surface">
         <Image
-          src={`${IMAGE_BASE_URL}/w500${posterPath}`}
+          src={`${TMDB_IMAGE_BASE_URL}/w500${posterPath}`}
           alt={title}
           fill
           sizes="(max-width: 1024px) 35vw, 260px"

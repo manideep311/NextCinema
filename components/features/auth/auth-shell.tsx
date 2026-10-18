@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Logo } from "@/components/ui/logo";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface AuthShellProps {
   title: string;
@@ -13,8 +14,6 @@ interface AuthShellProps {
   backdropPath?: string | null;
 }
 
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
-
 /** Shared cinematic backdrop + card for /login and /signup. */
 export function AuthShell({ title, subtitle, children, backdropPath }: AuthShellProps) {
   return (
@@ -22,7 +21,7 @@ export function AuthShell({ title, subtitle, children, backdropPath }: AuthShell
       {backdropPath && (
         <div className="absolute inset-0 -z-20">
           <Image
-            src={`${IMAGE_BASE_URL}/w1280${backdropPath}`}
+            src={`${TMDB_IMAGE_BASE_URL}/w1280${backdropPath}`}
             alt=""
             fill
             priority

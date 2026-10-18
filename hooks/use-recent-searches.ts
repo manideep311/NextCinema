@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { readFromStorage, userScopedKey, writeToStorage } from "@/lib/local-storage";
+import { readUserScoped, userScopedKey, writeToStorage } from "@/lib/local-storage";
 import { useAuth } from "@/components/providers/auth-provider";
 
 const MAX_SEARCHES = 8;
@@ -22,7 +22,7 @@ export function useRecentSearches() {
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setSearches(userId ? readFromStorage<string[]>(userScopedKey("recent-searches", userId)) ?? [] : []);
+      setSearches(userId ? readUserScoped<string[]>("recent-searches", userId) ?? [] : []);
     });
     return () => {
       cancelled = true;

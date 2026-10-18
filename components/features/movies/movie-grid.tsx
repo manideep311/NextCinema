@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from "framer-motion";
 import type { MovieProfile } from "@/types/movie";
 import { MovieCard } from "@/components/features/movies/movie-card";
+import type { MatchExplanation } from "@/components/features/movies/why-this";
 import { MovieCardSkeleton } from "@/components/features/movies/movie-card-skeleton";
 import { staggerContainer, fadeInUp, EASE_OUT } from "@/components/motion/motion-config";
 
@@ -11,6 +12,8 @@ interface MovieGridProps {
   matchScores?: Record<number, number>;
   /** Optional one-line "why it fits" per movie, shown on hover (recommendation surfaces). */
   reasons?: Record<number, string>;
+  /** Optional per-signal score breakdown per movie (adds a "Why this?" panel). */
+  explanations?: Record<number, MatchExplanation>;
 }
 
 /**
@@ -21,7 +24,7 @@ interface MovieGridProps {
  * callers that swap `movies` without remounting (e.g. a tab switch) can
  * key this component to replay the reveal — see CategoryTabs/SearchPage.
  */
-export function MovieGrid({ movies, matchScores, reasons }: MovieGridProps) {
+export function MovieGrid({ movies, matchScores, reasons, explanations }: MovieGridProps) {
   const reducedMotion = useReducedMotion();
 
   return (
@@ -37,7 +40,12 @@ export function MovieGrid({ movies, matchScores, reasons }: MovieGridProps) {
           variants={reducedMotion ? undefined : fadeInUp}
           transition={{ duration: 0.25, ease: EASE_OUT }}
         >
-          <MovieCard movie={movie} matchScore={matchScores?.[movie.id]} reason={reasons?.[movie.id]} />
+          <MovieCard
+            movie={movie}
+            matchScore={matchScores?.[movie.id]}
+            reason={reasons?.[movie.id]}
+            explanation={explanations?.[movie.id]}
+          />
         </motion.div>
       ))}
     </motion.div>

@@ -23,7 +23,9 @@ interface InspectorState {
   index: number;
 }
 
-const ADVANCE_STORAGE_PREFIX = "cinematch:journey-progress:";
+const ADVANCE_STORAGE_PREFIX = "nextcinema:journey-progress:";
+/** Pre-rename prefix — read once as a fallback, then removed. */
+const LEGACY_ADVANCE_STORAGE_PREFIX = "cinematch:journey-progress:";
 const ADVANCE_BANNER_MS = 3200;
 
 /**
@@ -39,6 +41,7 @@ export function JourneyExperience({ journeyId, journeyName, detail }: JourneyExp
 
   useEffect(() => {
     const key = `${ADVANCE_STORAGE_PREFIX}${journeyId}`;
+    const legacyKey = `${LEGACY_ADVANCE_STORAGE_PREFIX}${journeyId}`;
     let cancelled = false;
     let bannerTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -48,7 +51,8 @@ export function JourneyExperience({ journeyId, journeyName, detail }: JourneyExp
     queueMicrotask(() => {
       if (cancelled) return;
       try {
-        const stored = sessionStorage.getItem(key);
+        const stored = sessionStorage.getItem(key) ?? sessionStorage.getItem(legacyKey);
+        sessionStorage.removeItem(legacyKey);
         const lastSeen = stored ? Number(stored) : null;
         if (lastSeen !== null && detail.progress.watchedCount > lastSeen) {
           setJustAdvanced(true);

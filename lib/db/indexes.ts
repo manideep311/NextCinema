@@ -18,7 +18,7 @@ export const INDEX_SPECS: Record<CollectionName, IndexDescription[]> = {
   [COLLECTIONS.favorites]: [
     // One favorite per user per movie; also serves id-only (covered) lookups.
     { key: { userId: 1, movieId: 1 }, unique: true },
-    // Favorites page (newest first) and the For You seed (latest favorite, limit 1).
+    // Favorites page (newest first) and the For You seeds (newest five favorites).
     { key: { userId: 1, addedAt: -1 } },
   ],
   [COLLECTIONS.watchlist]: [

@@ -6,7 +6,27 @@ import { z } from "zod";
 // and plain-Node unit tests. The token is only ever stored in an httpOnly
 // cookie; it is never exposed to browser JavaScript or logged.
 
-export const SESSION_COOKIE = "cinematch_session";
+export const SESSION_COOKIE = "nextcinema_session";
+
+/**
+ * The cookie name from before the CineMatch → NextCinema rename. Still
+ * *read* for one release so existing sign-ins survive the deploy (proxy.ts
+ * moves a valid one over to SESSION_COOKIE); it is never written. Remove
+ * after the next release.
+ */
+export const LEGACY_SESSION_COOKIE = "cinematch_session";
+
+interface CookieReader {
+  get(name: string): { value: string } | undefined;
+}
+
+/** The session token from a cookie jar — the current cookie wins; the legacy one is the fallback. */
+export function readSessionCookie(cookies: CookieReader): { token: string | undefined; legacy: boolean } {
+  const current = cookies.get(SESSION_COOKIE)?.value;
+  if (current) return { token: current, legacy: false };
+  const legacy = cookies.get(LEGACY_SESSION_COOKIE)?.value;
+  return { token: legacy || undefined, legacy: Boolean(legacy) };
+}
 
 /** Absolute lifetime of a session token. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
@@ -20,7 +40,12 @@ const MIN_SECRET_LENGTH = 32;
 /** Real tokens are a few hundred bytes — anything huge is rejected before parsing. */
 const MAX_TOKEN_LENGTH = 4096;
 
-export const USER_ROLES = ["user", "premium", "admin"] as const;
+/**
+ * The only role that exists. "premium" and "admin" were declared but
+ * nothing granted or checked them, so they're gone; a token claiming
+ * either now fails validation and is treated as signed out.
+ */
+export const USER_ROLES = ["user"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export interface SessionPayload {
@@ -28,6 +53,12 @@ export interface SessionPayload {
   email: string;
   name: string;
   role: UserRole;
+  /**
+   * The user's `tokenVersion` when this token was issued. Signing out
+   * increments the stored version, so every token issued before it stops
+   * being renewed (see proxy.ts and services/auth.ts `revokeSessions`).
+   */
+  tokenVersion: number;
 }
 
 export interface VerifiedSession extends SessionPayload {
@@ -45,6 +76,8 @@ const claimsSchema = z.object({
   email: z.string().email().max(254),
   name: z.string().min(1).max(80),
   role: z.enum(USER_ROLES),
+  // Absent on tokens issued before versioning existed; those count as version 0.
+  tv: z.number().int().min(0).optional(),
   iat: z.number().int(),
   exp: z.number().int(),
 });
@@ -66,7 +99,7 @@ function getSecretKey(): Uint8Array {
 
 export async function signSessionToken(payload: SessionPayload, nowMs: number = Date.now()): Promise<string> {
   const now = Math.floor(nowMs / 1000);
-  return new SignJWT({ email: payload.email, name: payload.name, role: payload.role })
+  return new SignJWT({ email: payload.email, name: payload.name, role: payload.role, tv: payload.tokenVersion })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setSubject(payload.userId)
     .setIssuer(ISSUER)
@@ -100,8 +133,8 @@ export async function verifySessionToken(
     const claims = claimsSchema.safeParse(payload);
     if (!claims.success) return null;
 
-    const { sub, email, name, role, iat, exp } = claims.data;
-    return { userId: sub, email, name, role, issuedAt: iat, expiresAt: exp };
+    const { sub, email, name, role, tv, iat, exp } = claims.data;
+    return { userId: sub, email, name, role, tokenVersion: tv ?? 0, issuedAt: iat, expiresAt: exp };
   } catch {
     return null;
   }

@@ -7,12 +7,12 @@ const FEATURES = [
   {
     icon: Compass,
     title: "Real Taste Matching",
-    description: "Get recommendations based on genres, cast, director, and themes — not just what's popular.",
+    description: "Matched on genres, keywords (a quarter of the score), cast, and director — not just what's popular.",
   },
   {
     icon: MessageSquareText,
     title: "Explained Recommendations",
-    description: "Every suggestion comes with a clear reason why it matches what you already love.",
+    description: "Every suggestion comes with a reason, plus a \"Why this?\" breakdown of each signal behind its score.",
   },
   {
     icon: Filter,

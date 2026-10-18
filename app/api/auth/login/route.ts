@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authenticateUser, InvalidCredentialsError } from "@/services/auth";
-import { attachSessionCookie } from "@/lib/auth/session";
+import { attachSessionCookie } from "@/lib/auth/request-session";
 import { loginSchema } from "@/lib/auth/schemas";
 import { enforceRateLimit, getClientIp, jsonError, parseJsonBody, PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 
@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
   if (perAccount) return perAccount;
 
   try {
-    const user = await authenticateUser(body.data.email, body.data.password);
+    const { user, tokenVersion } = await authenticateUser(body.data.email, body.data.password);
     const response = NextResponse.json({ user }, { headers: PRIVATE_NO_STORE });
-    await attachSessionCookie(response, { userId: user.id, email: user.email, name: user.name, role: user.role });
+    await attachSessionCookie(response, { userId: user.id, email: user.email, name: user.name, role: user.role, tokenVersion });
     return response;
   } catch (error) {
     if (error instanceof InvalidCredentialsError) {

@@ -9,8 +9,7 @@
 // (which is "server-only") by opening its own short-lived client.
 import { MongoClient } from "mongodb";
 import { INDEX_SPECS } from "./indexes";
-
-const DEFAULT_DB_NAME = "cinematch";
+import { databaseName } from "./config";
 
 async function main() {
   const uri = process.env.MONGODB_URI;
@@ -18,7 +17,7 @@ async function main() {
 
   const client = await new MongoClient(uri).connect();
   try {
-    const db = client.db(process.env.MONGODB_DB || DEFAULT_DB_NAME);
+    const db = client.db(databaseName());
     for (const [collection, specs] of Object.entries(INDEX_SPECS)) {
       const names = await db.collection(collection).createIndexes(specs);
       console.log(`✓ ${collection}: ${names.join(", ")}`);

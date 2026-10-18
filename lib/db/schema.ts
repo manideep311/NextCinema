@@ -16,6 +16,8 @@ export interface UserDoc {
   avatarUrl: string | null;
   role: UserRole;
   createdAt: Date;
+  /** Bumped to revoke every session issued before (sign-out). Missing on older documents = 0. */
+  tokenVersion?: number;
 }
 
 // Favorites, watchlist, history, and watched all store the same small

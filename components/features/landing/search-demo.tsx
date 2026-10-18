@@ -22,11 +22,11 @@ const PAUSE_AFTER_DELETE_MS = 300;
  * language queries so visitors immediately understand what the search can
  * do. Every example is a query the real search interprets (similarity,
  * mood, decade + quality — see lib/search/interpret.ts), and clicking opens
- * the guest-accessible search page with the current example already run. Deliberately reads
- * as a premium discovery field, not an AI chatbot: no "AI-powered" badge,
- * no sparkle iconography.
+ * the guest-accessible search page with the current example already run.
+ * The interpretation is rule-based (keyword and phrase matching), so it is
+ * presented as a search field, not a chatbot.
  */
-export function AiSearchDemo() {
+export function SearchDemo() {
   const [queryIndex, setQueryIndex] = useState(0);
   const [displayed, setDisplayed] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);

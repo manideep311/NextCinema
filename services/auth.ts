@@ -1,6 +1,6 @@
 import "server-only";
 import { ObjectId } from "mongodb";
-import { getUsersCollection, isDuplicateKeyError } from "@/lib/db";
+import { getUsersCollection, isDuplicateKeyError, userObjectId } from "@/lib/db";
 import type { UserDoc } from "@/lib/db/schema";
 import { getDummyPasswordHash, hashPassword, needsRehash, verifyPassword } from "@/lib/auth/password";
 import type { UserRole } from "@/lib/auth/token";
@@ -20,15 +20,26 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
+/**
+ * Signup refused because the email is taken. Its message and the route's
+ * status (400, the same as a validation failure) deliberately don't say
+ * so — see app/api/auth/signup/route.ts.
+ */
 export class AccountUnavailableError extends Error {
   constructor() {
-    super("Could not create an account with those details.");
+    super("Couldn't create an account with those details. If you already have an account, sign in instead.");
     this.name = "AccountUnavailableError";
   }
 }
 
 function toPublicUser(doc: Pick<UserDoc, "_id" | "email" | "name" | "role">): PublicUser {
   return { id: doc._id.toString(), email: doc.email, name: doc.name, role: doc.role };
+}
+
+/** A signed-in user plus the token version their session must carry. */
+export interface AuthenticatedUser {
+  user: PublicUser;
+  tokenVersion: number;
 }
 
 export function normalizeEmail(email: string): string {
@@ -40,7 +51,7 @@ export function normalizeEmail(email: string): string {
  * a concurrent duplicate signup loses the race at the database, not in app
  * code — and the error surfaced to the client doesn't name the reason.
  */
-export async function createUser(params: { email: string; password: string; name: string }): Promise<PublicUser> {
+export async function createUser(params: { email: string; password: string; name: string }): Promise<AuthenticatedUser> {
   const users = await getUsersCollection();
   const email = normalizeEmail(params.email);
 
@@ -58,6 +69,7 @@ export async function createUser(params: { email: string; password: string; name
     avatarUrl: null,
     role: "user",
     createdAt: new Date(),
+    tokenVersion: 0,
   };
 
   try {
@@ -66,14 +78,14 @@ export async function createUser(params: { email: string; password: string; name
     if (isDuplicateKeyError(error)) throw new AccountUnavailableError();
     throw error;
   }
-  return toPublicUser(doc);
+  return { user: toPublicUser(doc), tokenVersion: 0 };
 }
 
-export async function authenticateUser(emailInput: string, password: string): Promise<PublicUser> {
+export async function authenticateUser(emailInput: string, password: string): Promise<AuthenticatedUser> {
   const users = await getUsersCollection();
   const doc = await users.findOne(
     { email: normalizeEmail(emailInput) },
-    { projection: { _id: 1, email: 1, name: 1, role: 1, passwordHash: 1 } }
+    { projection: { _id: 1, email: 1, name: 1, role: 1, passwordHash: 1, tokenVersion: 1 } }
   );
 
   if (!doc) {
@@ -92,5 +104,23 @@ export async function authenticateUser(emailInput: string, password: string): Pr
     await users.updateOne({ _id: doc._id }, { $set: { passwordHash: await hashPassword(password) } });
   }
 
-  return toPublicUser(doc);
+  return { user: toPublicUser(doc), tokenVersion: doc.tokenVersion ?? 0 };
+}
+
+/** The user's current token version, or null if the account no longer exists. */
+export async function getTokenVersion(userId: string): Promise<number | null> {
+  const users = await getUsersCollection();
+  const doc = await users.findOne({ _id: userObjectId(userId) }, { projection: { _id: 0, tokenVersion: 1 } });
+  return doc ? (doc.tokenVersion ?? 0) : null;
+}
+
+/**
+ * Revokes every session the user has: tokens carry the version they were
+ * issued with, and proxy.ts refuses to renew one whose version is behind.
+ * Called on sign-out. (There is no password-change flow yet; one should
+ * call this too.)
+ */
+export async function revokeSessions(userId: string): Promise<void> {
+  const users = await getUsersCollection();
+  await users.updateOne({ _id: userObjectId(userId) }, { $inc: { tokenVersion: 1 } });
 }

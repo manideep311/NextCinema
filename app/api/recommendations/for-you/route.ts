@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireRequestSession } from "@/lib/auth/session";
+import { requireRequestSession } from "@/lib/auth/request-session";
 import { enforceRateLimit, jsonError, PRIVATE_NO_STORE } from "@/lib/http";
 import { limitParamSchema, parseOptionalParam } from "@/lib/validation";
 import { getForYou } from "@/services/for-you";
@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
   try {
     const result = await getForYou(auth.session.userId, limit.value);
     return NextResponse.json(
-      { basis: result.basis, basedOnTitle: result.basedOn?.title ?? null, movies: result.movies },
+      // basedOnTitle: the favorite the *top* pick was matched with (the assistant shows only that pick).
+      { basis: result.basis, basedOnTitle: result.movies[0]?.explanation?.comparedWith ?? null, movies: result.movies },
       { headers: PRIVATE_NO_STORE }
     );
   } catch {

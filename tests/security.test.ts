@@ -23,7 +23,7 @@ import { hashPassword, verifyPassword, needsRehash } from "@/lib/auth/password";
 // Read lazily by lib/auth/token.ts at sign/verify time, so setting it here (after imports) is enough.
 process.env.AUTH_SECRET = "test-secret-that-is-definitely-longer-than-32-chars";
 
-const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const };
+const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const, tokenVersion: 0 };
 const KEY = new TextEncoder().encode(process.env.AUTH_SECRET);
 
 // --- Session tokens ---------------------------------------------------------------
@@ -181,4 +181,32 @@ test("time-zone greeting input is validated", () => {
   assert.equal(typeof hourInTimeZone("Asia/Kolkata"), "number");
   assert.equal(hourInTimeZone("Not/AZone"), null);
   assert.equal(hourInTimeZone("'; drop"), null);
+});
+
+test("only the user role exists; a validly signed token claiming admin or premium is rejected", async () => {
+  const { USER_ROLES } = await import("@/lib/auth/token");
+  assert.deepEqual([...USER_ROLES], ["user"]);
+  for (const role of ["admin", "premium"]) {
+    const forged = await new SignJWT({ email: USER.email, name: USER.name, role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(USER.userId)
+      .setIssuer("nextcinema")
+      .setAudience("nextcinema:web")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(KEY);
+    assert.equal(await verifySessionToken(forged), null, role);
+  }
+});
+
+test("rate-limit IP prefers proxy-set headers and never trusts the client-supplied first X-Forwarded-For entry", async () => {
+  const { getClientIp } = await import("@/lib/http");
+  const ip = (headers: Record<string, string>) => getClientIp(new Request("http://localhost/", { headers }));
+
+  assert.equal(ip({ "x-vercel-forwarded-for": "203.0.113.7", "x-real-ip": "198.51.100.1", "x-forwarded-for": "1.1.1.1, 203.0.113.7" }), "203.0.113.7");
+  assert.equal(ip({ "x-real-ip": "198.51.100.1", "x-forwarded-for": "1.1.1.1" }), "198.51.100.1");
+  // A client that prepends a fake address can't change its bucket: the proxy-appended last entry is used.
+  assert.equal(ip({ "x-forwarded-for": "6.6.6.6, 203.0.113.9" }), "203.0.113.9");
+  assert.equal(ip({ "x-forwarded-for": "9.9.9.9, 203.0.113.9" }), "203.0.113.9");
+  assert.equal(ip({}), "local");
 });

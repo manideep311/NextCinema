@@ -91,9 +91,17 @@ export function getMovieVideos(movieId: number) {
   });
 }
 
-/** TMDB's own "similar movies" — the candidate pool we re-rank with our own scoring. */
+/** TMDB's own "similar movies" — a candidate source we re-rank with our own scoring. */
 export function getSimilarMovies(movieId: number, page = 1) {
   return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>(`/movie/${movieId}/similar`, {
+    params: { page: String(page) },
+    revalidateSeconds: TMDB_CACHE.movie,
+  });
+}
+
+/** TMDB's own "recommendations" for a movie — one of the candidate sources we re-rank with our own scoring. */
+export function getMovieRecommendations(movieId: number, page = 1) {
+  return tmdbFetch<TmdbPaginatedResponse<TmdbMovie>>(`/movie/${movieId}/recommendations`, {
     params: { page: String(page) },
     revalidateSeconds: TMDB_CACHE.movie,
   });

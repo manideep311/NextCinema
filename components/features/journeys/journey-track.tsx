@@ -5,8 +5,8 @@ import Image from "next/image";
 import { motion, useReducedMotion } from "framer-motion";
 import { Check, Play } from "lucide-react";
 import type { ResolvedJourneyMovie } from "@/types/journey";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 const ITEM_WIDTH = 152;
 
 interface JourneyTrackProps {
@@ -203,7 +203,7 @@ function TrackItem({ movie, index, isFocused, isLast, reducedMotion, registerRef
         >
           {movie.posterPath ? (
             <Image
-              src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
+              src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
               alt={movie.title}
               fill
               sizes="152px"

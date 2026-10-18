@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireRequestSession } from "@/lib/auth/session";
+import { requireRequestSession } from "@/lib/auth/request-session";
 import { enforceRateLimit, jsonError, parseJsonBody, PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 import { movieRefBodySchema } from "@/lib/validation";
 import { listWatchHistory, recordView } from "@/services/watch-history";
