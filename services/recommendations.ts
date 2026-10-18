@@ -1,13 +1,12 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { getMovieWithExtras, getSimilarMovies, TMDB_CACHE } from "@/services/tmdb";
+import { discoverMovies, getMovieRecommendations, getMovieWithExtras, getSimilarMovies, TMDB_CACHE } from "@/services/tmdb";
+import { buildCandidatePool, seedDiscoverGenres } from "@/lib/candidate-pool";
 import { mapExtrasToProfile } from "@/lib/movie-mapper";
 import { recommendMovies } from "@/lib/recommendation-engine";
 import type { RecommendationReason } from "@/types/movie";
-import type { TmdbMovie } from "@/types/tmdb";
+import type { TmdbMovie, TmdbPaginatedResponse } from "@/types/tmdb";
 
-/** How many of TMDB's similar movies get fully profiled and scored. */
-const MAX_CANDIDATES = 20;
 /** Enough for the Recommendations page; other surfaces slice what they need. */
 export const MAX_RECOMMENDATIONS = 20;
 
@@ -24,32 +23,34 @@ export interface MovieRecommendation {
   reasons: RecommendationReason[];
 }
 
+const NO_RESULTS: TmdbPaginatedResponse<TmdbMovie> = { page: 1, results: [], total_pages: 0, total_results: 0 };
+
 /**
- * Cheap pre-filter on data TMDB's /similar already returned, applied
- * *before* paying for a full profile request per candidate: drops
- * duplicates, the seed itself, unreleased titles and poster-less entries.
- * There is no vote-count floor: thinly-voted candidates stay in the pool
- * and the engine's Bayesian-adjusted rating keeps a handful of votes from
- * counting as a strong rating.
+ * Candidate pool for a seed: TMDB /similar (pages 1–2), TMDB
+ * /recommendations, and the most-voted /discover results in the seed's top
+ * genres — merged round-robin and de-duplicated (lib/candidate-pool.ts).
+ * Only /similar page 1 is required; a failed optional source just shrinks
+ * the pool.
  */
-export function selectCandidates(seedId: number, similar: TmdbMovie[], today: string): TmdbMovie[] {
-  const seen = new Set<number>([seedId]);
-  const picked: TmdbMovie[] = [];
-  for (const movie of similar) {
-    if (seen.has(movie.id)) continue;
-    seen.add(movie.id);
-    if (!movie.poster_path || movie.adult) continue;
-    if (!movie.release_date || movie.release_date > today) continue;
-    picked.push(movie);
-    if (picked.length >= MAX_CANDIDATES) break;
-  }
-  return picked;
+async function fetchCandidatePool(movieId: number, genreIds: number[]): Promise<TmdbMovie[]> {
+  const genres = seedDiscoverGenres(genreIds);
+  const [similarFirst, similarSecond, tmdbRecommendations, discovered] = await Promise.all([
+    getSimilarMovies(movieId, 1),
+    getSimilarMovies(movieId, 2).catch(() => NO_RESULTS),
+    getMovieRecommendations(movieId).catch(() => NO_RESULTS),
+    genres ? discoverMovies({ with_genres: genres, sort_by: "vote_count.desc" }).catch(() => NO_RESULTS) : NO_RESULTS,
+  ]);
+  return buildCandidatePool(
+    movieId,
+    [[...similarFirst.results, ...similarSecond.results], tmdbRecommendations.results, discovered.results],
+    new Date().toISOString().slice(0, 10)
+  );
 }
 
 async function computeRecommendations(movieId: number): Promise<MovieRecommendation[]> {
-  const [baseData, similarPage] = await Promise.all([getMovieWithExtras(movieId), getSimilarMovies(movieId)]);
+  const baseData = await getMovieWithExtras(movieId);
   const baseProfile = mapExtrasToProfile(baseData);
-  const candidates = selectCandidates(movieId, similarPage.results, new Date().toISOString().slice(0, 10));
+  const candidates = await fetchCandidatePool(movieId, baseProfile.genreIds);
 
   // allSettled: a dropped connection or two shrinks the pool instead of failing the whole list.
   const settled = await Promise.allSettled(candidates.map((movie) => getMovieWithExtras(movie.id)));
@@ -75,7 +76,7 @@ async function computeRecommendations(movieId: number): Promise<MovieRecommendat
  * and the assistant. Personalization (which movie to seed from, what to
  * exclude) happens outside this cache in services/for-you.ts.
  */
-export const getRecommendationsForMovie = unstable_cache(computeRecommendations, ["recommendations-for-movie-v3"], {
+export const getRecommendationsForMovie = unstable_cache(computeRecommendations, ["recommendations-for-movie-v4"], {
   revalidate: TMDB_CACHE.movie,
   tags: ["recommendations"],
 });
