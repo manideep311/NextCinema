@@ -10,7 +10,7 @@ import {
 } from "@/lib/auth/token";
 import { isProtectedPath } from "@/lib/auth/protected-routes";
 import { INTRO_COOKIE, INTRO_HEADER } from "@/lib/intro";
-import { getTokenVersion } from "@/services/auth";
+import { checkSessionVersion } from "@/services/auth";
 
 /**
  * Runs before page requests (Next.js 16's replacement for middleware.ts).
@@ -59,15 +59,12 @@ export async function proxy(request: NextRequest) {
   if (token && !session) {
     expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
   } else if (session && (legacy || shouldRenewSession(session))) {
-    // null = the lookup failed: leave the token alone (it still expires on its own) rather than sign anyone out.
-    const currentVersion = await getTokenVersion(session.userId).then(
-      (version) => ({ version }),
-      () => null
-    );
-    if (currentVersion && currentVersion.version !== session.tokenVersion) {
-      // Revoked (or the account is gone): clear it instead of extending it.
+    // "unknown" = the lookup failed: leave the token alone (it still expires on its own) rather than sign anyone out.
+    const status = await checkSessionVersion(session);
+    if (status === "revoked") {
+      // Signed out since (or the account is gone): clear it instead of extending it.
       expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
-    } else if (currentVersion) {
+    } else if (status === "current") {
       const renewed = await signSessionToken({
         userId: session.userId,
         email: session.email,

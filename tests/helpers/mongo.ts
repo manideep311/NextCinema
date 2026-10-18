@@ -28,3 +28,18 @@ export async function applyIndexes(): Promise<void> {
   const db = await getDb();
   for (const [collection, specs] of Object.entries(INDEX_SPECS)) await db.collection(collection).createIndexes(specs);
 }
+
+/** Inserts a user document so tokens signed for `userId` pass the session revocation check. */
+export async function insertTestUser(user: { userId: string; email: string; name: string; tokenVersion?: number }): Promise<void> {
+  const [{ getUsersCollection }, { ObjectId }] = await Promise.all([import("@/lib/db"), import("mongodb")]);
+  await (await getUsersCollection()).insertOne({
+    _id: new ObjectId(user.userId),
+    email: user.email,
+    passwordHash: "unused",
+    name: user.name,
+    avatarUrl: null,
+    role: "user",
+    createdAt: new Date(),
+    tokenVersion: user.tokenVersion ?? 0,
+  });
+}
