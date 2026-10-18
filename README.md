@@ -219,8 +219,10 @@ and pull request.
 - **Sessions.** An HS256 JWT in an `httpOnly`, `SameSite=Lax`,
   `Secure`-in-production cookie; issuer, audience, expiry and payload shape
   are validated. Tokens last 7 days and are renewed after a day of use. Each
-  token carries the user's `tokenVersion`. Signing out increments it, and
-  `proxy.ts` refuses to renew a token whose version is behind.
+  token carries the user's `tokenVersion`. Signing out increments it, which
+  revokes every earlier token. Authenticated API routes check the version on
+  every call, and `proxy.ts` refuses to renew a token whose version is
+  behind.
 - **Authorization.** User ids come only from the verified session. Strict
   body schemas reject client-sent `userId`, `role` and similar fields, and
   movie snapshots are resolved from TMDB server-side.
@@ -241,9 +243,10 @@ and pull request.
   with TMDB's own recommender on 50 popular seeds (see
   [`docs/evaluation.md`](docs/evaluation.md)). It hasn't been checked against
   real user judgements.
-- **Revocation is checked at renewal.** API routes verify a token's signature
-  but not its version, so a copied token keeps working against the API until
-  it expires (up to 7 days). Pages stop renewing it after sign-out.
+- **Pages check revocation only at renewal.** API routes reject a revoked
+  token on every call. Server-rendered pages only verify the signature, so a
+  token copied before sign-out can still render account pages until the
+  proxy next tries to renew it, at most a day after it was issued.
 - **No password change, reset or email verification.** Without
   verification, a successful signup still reveals that an email was free.
 - **Rate limits are per server instance** (in-memory), so they're

@@ -1,12 +1,20 @@
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { createLibraryRoutes } from "@/lib/library-route";
 import { SESSION_COOKIE, signSessionToken } from "@/lib/auth/token";
+import { insertTestUser, startTestDatabase, stopTestDatabase } from "./helpers/mongo";
 
 process.env.AUTH_SECRET = "test-secret-that-is-definitely-longer-than-32-chars";
 
 const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const, tokenVersion: 0 };
+
+// The session itself must check out (the user exists, token not revoked) so that only the injected service fails.
+before(async () => {
+  await startTestDatabase();
+  await insertTestUser(USER);
+});
+after(stopTestDatabase);
 
 async function request(method: "GET" | "DELETE", body?: unknown) {
   const token = await signSessionToken(USER);

@@ -115,8 +115,24 @@ export async function getTokenVersion(userId: string): Promise<number | null> {
 }
 
 /**
+ * Whether a verified token still matches its account: "current", "revoked"
+ * (the user signed out since it was issued, or the account is gone), or
+ * "unknown" when the lookup itself failed — callers decide whether to
+ * fail open or closed.
+ */
+export async function checkSessionVersion(session: { userId: string; tokenVersion: number }): Promise<"current" | "revoked" | "unknown"> {
+  try {
+    const version = await getTokenVersion(session.userId);
+    return version === session.tokenVersion ? "current" : "revoked";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
  * Revokes every session the user has: tokens carry the version they were
- * issued with, and proxy.ts refuses to renew one whose version is behind.
+ * issued with; API routes reject one whose version is behind and proxy.ts
+ * refuses to renew it.
  * Called on sign-out. (There is no password-change flow yet; one should
  * call this too.)
  */

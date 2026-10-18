@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import { GET, POST, DELETE } from "@/app/api/favorites/route";
 import { SESSION_COOKIE, signSessionToken } from "@/lib/auth/token";
 import { addFavorite, listRecentFavorites } from "@/services/favorites";
-import { applyIndexes, startTestDatabase, stopTestDatabase } from "./helpers/mongo";
+import { applyIndexes, insertTestUser, startTestDatabase, stopTestDatabase } from "./helpers/mongo";
 
 process.env.AUTH_SECRET = "test-secret-that-is-definitely-longer-than-32-chars";
 process.env.TMDB_API_READ_ACCESS_TOKEN = "test-token";
@@ -17,6 +17,8 @@ const realFetch = globalThis.fetch;
 before(async () => {
   await startTestDatabase();
   await applyIndexes();
+  await insertTestUser(ALICE);
+  await insertTestUser(BOB);
   globalThis.fetch = (async (input: string | URL | Request) => {
     const id = Number(new URL(String(input)).pathname.split("/").pop());
     if (id === 404) return new Response(JSON.stringify({ status_message: "not found" }), { status: 404 });
