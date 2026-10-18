@@ -70,7 +70,18 @@ shows *why* it was picked.
 - **Viewed vs watched** — `watch_history` records pages opened (Recently Viewed); `watched` records explicit "Mark as Watched" and is the only thing journey progress counts.
 
 ### Features
-- **Recommendation engine** (`lib/recommendation-engine.ts`) — pure and deterministic; weighted genre/keyword/cast/director/rating/popularity similarity with explained reasons. "% Match" is normalized over the signals the seed movie actually has (ranking is unchanged by the normalization). Per-movie results are cached as public data and shared by the movie page, For You, Recommendations, and search; For You adds personal filtering on top. With no favorites yet, For You shows popular picks *without* a match score.
+- **Recommendation engine** (`lib/recommendation-engine.ts`) — content-based, pure and deterministic. Each candidate is compared with the seed movie on six signals:
+
+  | Signal | Weight | Similarity |
+  |---|---|---|
+  | Genres | 35% | Jaccard overlap of TMDB genre ids |
+  | Keywords | 25% | Jaccard overlap of TMDB keywords |
+  | Cast | 15% | Jaccard overlap of the top 5 billed cast, by TMDB person id |
+  | Director | 10% | Jaccard overlap of all credited directors, by TMDB person id |
+  | Rating | 10% | Closeness of Bayesian-adjusted ratings (prior 6.5, 100 votes): 1 − gap/3 |
+  | Popularity | 5% | Closeness of log₁₀(1 + popularity): 1 − gap/2 |
+
+  "% Match" is Σ similarity × weight ÷ Σ weight over the signals that apply: a signal the seed has no data for is skipped, and keywords/cast are also skipped when the *candidate* has none (missing data isn't evidence of difference). Candidates come from TMDB `/similar` (pages 1–2), `/recommendations`, and the most-voted `/discover` titles in the seed's top two genres, merged and de-duplicated (`lib/candidate-pool.ts`, up to 40). Every recommendation card has a **Why this?** panel showing each signal's similarity and weight. Per-movie results are cached as public data and shared by the movie page, For You, Recommendations and search. For You blends the lists of the user's five most recent favourites, weighted 1 → 0.2 by recency (`lib/personalization.ts`), then removes favourites and watched titles; with no favourites it shows popular picks *without* a match score.
 - **Movie Journeys** (`lib/journeys/`) — data-driven: journeys are definitions (franchise, genre, theme, mood, discovery) with sources (curated lists, TMDB collections/keywords/discover/people/trending), hard rules, ranking weights, and a minimum size. Franchise journeys cover every kind — shared cinematic universes (MCU, DCEU, Wizarding World, Middle-earth, Conjuring, MonsterVerse, YRF Spy, Rohit Shetty's Cop Universe, LCU, Maddock), action, superhero, sci-fi/fantasy, animated, family, comedy, horror, crime, drama/romance, Indian (Telugu, Tamil, Hindi, Malayalam, Kannada), and world cinema — using TMDB collections matched by exact, verified name, or hand-verified lists where TMDB has no single collection. The pure engine (`lib/journeys/engine.ts`) filters, scores, diversifies, orders, and hides journeys that don't meet their threshold; `services/journeys.ts` caches each journey for its freshness (hourly/daily/weekly) so dynamic journeys refresh themselves. Alternate watch orders exist only where officially documented (curated journeys).
 - **Search** (`lib/search/interpret.ts`, `services/search.ts`) — deterministic interpretation of titles, moods/genres, decades and year ranges, languages/Indian film industries, "like X" similarity, actors and directors, quality words ("underrated", "acclaimed"), and journeys. An exact title always wins; anything uninterpretable falls back to title search. No LLM.
 - **Assistant** (`components/features/assistant/`) — not LLM-backed; code-split so guests never download it. "Surprise me" picks from a genuine hidden-gem pool.
