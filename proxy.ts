@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth/token";
 import { isProtectedPath } from "@/lib/auth/protected-routes";
 import { INTRO_COOKIE, INTRO_HEADER } from "@/lib/intro";
+import { getTokenVersion } from "@/services/auth";
 
 /**
  * Runs before page requests (Next.js 16's replacement for middleware.ts).
@@ -20,6 +21,9 @@ import { INTRO_COOKIE, INTRO_HEADER } from "@/lib/intro";
  *    session itself, so authorization never depends on this file.
  * 2. Sliding session: a valid token older than a day is re-issued, so active
  *    users stay signed in while idle sessions still expire after 7 days.
+ *    Before re-issuing, the token's version is checked against the user's
+ *    current `tokenVersion`; a revoked token (signed out since) is cleared
+ *    instead of renewed.
  * 3. Stale cookies (expired/tampered/foreign tokens) are cleared, and a
  *    valid pre-rename `cinematch_session` cookie is moved to the current name.
  * 4. Marks the browsing session as having seen the opening intro, so the
@@ -55,14 +59,25 @@ export async function proxy(request: NextRequest) {
   if (token && !session) {
     expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
   } else if (session && (legacy || shouldRenewSession(session))) {
-    const renewed = await signSessionToken({
-      userId: session.userId,
-      email: session.email,
-      name: session.name,
-      role: session.role,
-    });
-    response.cookies.set(SESSION_COOKIE, renewed, sessionCookieOptions());
-    if (legacy) expire(response, LEGACY_SESSION_COOKIE);
+    // null = the lookup failed: leave the token alone (it still expires on its own) rather than sign anyone out.
+    const currentVersion = await getTokenVersion(session.userId).then(
+      (version) => ({ version }),
+      () => null
+    );
+    if (currentVersion && currentVersion.version !== session.tokenVersion) {
+      // Revoked (or the account is gone): clear it instead of extending it.
+      expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
+    } else if (currentVersion) {
+      const renewed = await signSessionToken({
+        userId: session.userId,
+        email: session.email,
+        name: session.name,
+        role: session.role,
+        tokenVersion: session.tokenVersion,
+      });
+      response.cookies.set(SESSION_COOKIE, renewed, sessionCookieOptions());
+      if (legacy) expire(response, LEGACY_SESSION_COOKIE);
+    }
   }
 
   return response;

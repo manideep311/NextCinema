@@ -16,9 +16,9 @@ export async function POST(request: NextRequest) {
   if (!body.ok) return body.response;
 
   try {
-    const user = await createUser(body.data);
+    const { user, tokenVersion } = await createUser(body.data);
     const response = NextResponse.json({ user }, { headers: PRIVATE_NO_STORE });
-    await attachSessionCookie(response, { userId: user.id, email: user.email, name: user.name, role: user.role });
+    await attachSessionCookie(response, { userId: user.id, email: user.email, name: user.name, role: user.role, tokenVersion });
     return response;
   } catch (error) {
     if (error instanceof AccountUnavailableError) {

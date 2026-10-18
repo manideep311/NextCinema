@@ -23,7 +23,7 @@ import { hashPassword, verifyPassword, needsRehash } from "@/lib/auth/password";
 // Read lazily by lib/auth/token.ts at sign/verify time, so setting it here (after imports) is enough.
 process.env.AUTH_SECRET = "test-secret-that-is-definitely-longer-than-32-chars";
 
-const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const };
+const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const, tokenVersion: 0 };
 const KEY = new TextEncoder().encode(process.env.AUTH_SECRET);
 
 // --- Session tokens ---------------------------------------------------------------

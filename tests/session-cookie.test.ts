@@ -1,12 +1,32 @@
-import { test } from "node:test";
+import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { proxy } from "@/proxy";
 import { LEGACY_SESSION_COOKIE, SESSION_COOKIE, readSessionCookie, signSessionToken, verifySessionToken } from "@/lib/auth/token";
 
+import { ObjectId } from "mongodb";
+import { startTestDatabase, stopTestDatabase } from "./helpers/mongo";
+
 process.env.AUTH_SECRET = "test-secret-that-is-definitely-longer-than-32-chars";
 
-const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const };
+const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const, tokenVersion: 0 };
+
+// Migrating a legacy cookie re-issues the token, which checks the user's token version in the database.
+before(async () => {
+  await startTestDatabase();
+  const { getUsersCollection } = await import("@/lib/db");
+  await (await getUsersCollection()).insertOne({
+    _id: new ObjectId(USER.userId),
+    email: USER.email,
+    passwordHash: "unused",
+    name: USER.name,
+    avatarUrl: null,
+    role: "user",
+    createdAt: new Date(),
+    tokenVersion: 0,
+  });
+});
+after(stopTestDatabase);
 
 function jar(values: Record<string, string>) {
   return { get: (name: string) => (name in values ? { value: values[name] } : undefined) };

@@ -6,7 +6,7 @@ import { SESSION_COOKIE, signSessionToken } from "@/lib/auth/token";
 
 process.env.AUTH_SECRET = "test-secret-that-is-definitely-longer-than-32-chars";
 
-const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const };
+const USER = { userId: "65f0c0ffee0000000000abcd", email: "a@example.com", name: "Alice", role: "user" as const, tokenVersion: 0 };
 
 async function request(method: "GET" | "DELETE", body?: unknown) {
   const token = await signSessionToken(USER);
