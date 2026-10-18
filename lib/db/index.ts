@@ -9,8 +9,7 @@ import {
   type WatchedDoc,
 } from "@/lib/db/schema";
 import { memoizeConnection, type ConnectionSlot } from "@/lib/db/connection-cache";
-
-const DEFAULT_DB_NAME = "cinematch";
+import { databaseName } from "@/lib/db/config";
 
 // Next.js dev mode hot-reloads route modules on every save, which would
 // otherwise open a fresh MongoClient (and a fresh TCP connection) each
@@ -47,7 +46,7 @@ function getClientPromise(): Promise<MongoClient> {
 /** The MongoDB database handle — lazily connects on first use. */
 export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
-  return client.db(process.env.MONGODB_DB || DEFAULT_DB_NAME);
+  return client.db(databaseName());
 }
 
 export async function getUsersCollection(): Promise<Collection<UserDoc>> {

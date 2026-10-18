@@ -33,7 +33,7 @@ shows *why* it was picked.
    | `TMDB_API_READ_ACCESS_TOKEN` | all movie data | [Get one free from TMDB](https://www.themoviedb.org/settings/api) |
    | `NEXT_PUBLIC_TMDB_IMAGE_BASE_URL` | — (optional) | Image CDN base; defaults to `https://image.tmdb.org/t/p` (`lib/tmdb-images.ts`). A different host must also be added to `images.remotePatterns` in `next.config.ts` |
    | `MONGODB_URI` | accounts, favorites, watchlist, history | [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) has a free tier, or run MongoDB locally |
-   | `MONGODB_DB` | — | Database name, defaults to `cinematch` |
+   | `MONGODB_DB` | — | Database name, defaults to `nextcinema`. Deployments created before the rename used `cinematch` — set `MONGODB_DB=cinematch` there to keep existing data |
    | `AUTH_SECRET` | sign in / sign up | Generate with `openssl rand -base64 32` |
 
    The app still runs and is browsable as a guest without `MONGODB_URI`/`AUTH_SECRET` set — browsing, search, trending, and categories all stay open. Favorites, watchlist, personalized recommendations, recently-viewed history, and the assistant all require an account.
