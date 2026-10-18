@@ -8,8 +8,10 @@ import type { MovieProfile } from "@/types/movie";
  */
 export function QuickSummary({ movie }: { movie: MovieProfile }) {
   const genrePhrase = movie.genreNames.slice(0, 2).join(" / ") || "genre-defying";
-  const directorPhrase = movie.director ? ` directed by ${movie.director}` : "";
-  const castPhrase = movie.castNames.length > 0 ? ` Starring ${movie.castNames.slice(0, 3).join(", ")}.` : "";
+  const directorNames = movie.directors.map((person) => person.name);
+  const directorPhrase = directorNames.length > 0 ? ` directed by ${directorNames.join(" & ")}` : "";
+  const castNames = movie.cast.slice(0, 3).map((person) => person.name);
+  const castPhrase = castNames.length > 0 ? ` Starring ${castNames.join(", ")}.` : "";
   const ratingPhrase =
     movie.voteAverage >= 7.5
       ? " Consistently highly rated by viewers."

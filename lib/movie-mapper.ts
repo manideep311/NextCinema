@@ -1,5 +1,5 @@
 import type { TmdbMovieWithExtras } from "@/services/tmdb";
-import type { MovieProfile } from "@/types/movie";
+import type { CreditedPerson, MovieProfile } from "@/types/movie";
 import type { TmdbMovie } from "@/types/tmdb";
 
 /** The minimal shape every movie card/grid renders. */
@@ -21,15 +21,23 @@ function extractYear(releaseDate: string): string | null {
   return releaseDate ? releaseDate.slice(0, 4) : null;
 }
 
-function extractDirector(crew: TmdbMovieWithExtras["credits"]["crew"]): string | null {
-  return crew.find((member) => member.job === "Director")?.name ?? null;
+/** Every credited director, once each (TMDB occasionally lists a person twice). */
+function extractDirectors(crew: TmdbMovieWithExtras["credits"]["crew"]): CreditedPerson[] {
+  const seen = new Set<number>();
+  const directors: CreditedPerson[] = [];
+  for (const member of crew) {
+    if (member.job !== "Director" || seen.has(member.id)) continue;
+    seen.add(member.id);
+    directors.push({ id: member.id, name: member.name });
+  }
+  return directors;
 }
 
-function extractTopCast(cast: TmdbMovieWithExtras["credits"]["cast"]): string[] {
+function extractTopCast(cast: TmdbMovieWithExtras["credits"]["cast"]): CreditedPerson[] {
   return [...cast]
     .sort((a, b) => a.order - b.order)
     .slice(0, MAX_CAST_MEMBERS)
-    .map((member) => member.name);
+    .map((member) => ({ id: member.id, name: member.name }));
 }
 
 /**
@@ -47,8 +55,8 @@ export function mapExtrasToProfile(data: TmdbMovieWithExtras): MovieProfile {
     genreIds: data.genres.map((g) => g.id),
     genreNames: data.genres.map((g) => g.name),
     keywords: data.keywords.keywords.map((k) => k.name),
-    castNames: extractTopCast(data.credits.cast),
-    director: extractDirector(data.credits.crew),
+    cast: extractTopCast(data.credits.cast),
+    directors: extractDirectors(data.credits.crew),
     popularity: data.popularity,
     voteAverage: data.vote_average,
   };

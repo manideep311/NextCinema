@@ -1,4 +1,4 @@
-import type { MovieProfile, ScoredMovie, RecommendationReason } from "@/types/movie";
+import type { CreditedPerson, MovieProfile, ScoredMovie, RecommendationReason } from "@/types/movie";
 import { clamp01 } from "@/lib/similarity";
 
 // Pure, deterministic, explainable recommendation scoring. No I/O, no
@@ -38,13 +38,17 @@ interface PreparedBase {
   profile: MovieProfile;
   genreIds: Set<number>;
   keywords: Set<string>;
-  cast: Set<string>;
-  director: string | null;
+  castIds: Set<number>;
+  directorIds: Set<number>;
   applicableWeight: number;
 }
 
 function lowerSet(values: string[]): Set<string> {
   return new Set(values.map((value) => value.toLowerCase()));
+}
+
+function idSet(people: CreditedPerson[]): Set<number> {
+  return new Set(people.map((person) => person.id));
 }
 
 /** |A∩B| / |A∪B| without materializing the union: |A∪B| = |A| + |B| − |A∩B|. */
@@ -67,8 +71,8 @@ function applicableWeightFor(base: MovieProfile): number {
   let weight = WEIGHTS.rating + WEIGHTS.popularity;
   if (base.genreIds.length > 0) weight += WEIGHTS.genre;
   if (base.keywords.length > 0) weight += WEIGHTS.keyword;
-  if (base.castNames.length > 0) weight += WEIGHTS.cast;
-  if (base.director) weight += WEIGHTS.director;
+  if (base.cast.length > 0) weight += WEIGHTS.cast;
+  if (base.directors.length > 0) weight += WEIGHTS.director;
   return weight;
 }
 
@@ -77,8 +81,8 @@ function prepareBase(base: MovieProfile): PreparedBase {
     profile: base,
     genreIds: new Set(base.genreIds),
     keywords: lowerSet(base.keywords),
-    cast: lowerSet(base.castNames),
-    director: base.director,
+    castIds: idSet(base.cast),
+    directorIds: idSet(base.directors),
     applicableWeight: applicableWeightFor(base),
   };
 }
@@ -88,15 +92,22 @@ function shared(baseList: string[], candidateSet: Set<string>): string[] {
   return baseList.filter((item) => candidateSet.has(item.toLowerCase()));
 }
 
+/** Overlapping people (matched by TMDB id), named as in the base movie's credits. */
+function sharedPeople(basePeople: CreditedPerson[], candidateIds: Set<number>): string[] {
+  return basePeople.filter((person) => candidateIds.has(person.id)).map((person) => person.name);
+}
+
 function scoreAgainst(prepared: PreparedBase, candidate: MovieProfile): { scored: ScoredMovie; breakdown: ScoreBreakdown } {
   const candidateKeywords = lowerSet(candidate.keywords);
-  const candidateCast = lowerSet(candidate.castNames);
+  const candidateCast = idSet(candidate.cast);
+  const candidateDirectors = idSet(candidate.directors);
 
   const signals: Record<SignalName, number> = {
     genre: jaccard(prepared.genreIds, new Set(candidate.genreIds)),
     keyword: jaccard(prepared.keywords, candidateKeywords),
-    cast: jaccard(prepared.cast, candidateCast),
-    director: prepared.director && candidate.director && prepared.director === candidate.director ? 1 : 0,
+    cast: jaccard(prepared.castIds, candidateCast),
+    // Jaccard over *all* credited directors: 1 for the same director(s), 0.5 when one of two co-directors returns.
+    director: jaccard(prepared.directorIds, candidateDirectors),
     rating: clamp01(candidate.voteAverage / 10),
     popularity: clamp01(candidate.popularity / POPULARITY_CAP),
   };
@@ -104,7 +115,7 @@ function scoreAgainst(prepared: PreparedBase, candidate: MovieProfile): { scored
   let raw = 0;
   for (const name of Object.keys(WEIGHTS) as SignalName[]) raw += signals[name] * WEIGHTS[name];
 
-  const reasons = buildReasons(prepared, candidate, signals, candidateKeywords, candidateCast);
+  const reasons = buildReasons(prepared, candidate, signals, candidateKeywords, candidateCast, candidateDirectors);
   const score = Math.round(clamp01(raw / prepared.applicableWeight) * 100);
 
   return {
@@ -122,13 +133,15 @@ function buildReasons(
   candidate: MovieProfile,
   signals: Record<SignalName, number>,
   candidateKeywords: Set<string>,
-  candidateCast: Set<string>
+  candidateCast: Set<number>,
+  candidateDirectors: Set<number>
 ): RecommendationReason[] {
   const reasons: RecommendationReason[] = [];
   const base = prepared.profile;
 
-  if (signals.director === 1 && candidate.director) {
-    reasons.push({ type: "director", label: `Also directed by ${candidate.director}` });
+  if (signals.director > 0) {
+    const directors = sharedPeople(base.directors, candidateDirectors);
+    if (directors.length > 0) reasons.push({ type: "director", label: `Also directed by ${directors.join(" & ")}` });
   }
 
   if (signals.genre > 0) {
@@ -137,7 +150,7 @@ function buildReasons(
   }
 
   if (signals.cast > 0) {
-    const cast = shared(base.castNames, candidateCast);
+    const cast = sharedPeople(base.cast, candidateCast);
     if (cast.length > 0) reasons.push({ type: "cast", label: `Features ${cast.slice(0, 2).join(", ")}` });
   }
 
