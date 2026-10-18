@@ -6,6 +6,7 @@ import { getSession } from "@/lib/auth/session";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { LibraryProvider, type InitialLibrary } from "@/components/providers/library-provider";
 import { AssistantWidget } from "@/components/features/assistant/assistant-widget";
+import { Footer } from "@/components/layout/footer";
 import { OpeningIntro } from "@/components/features/intro/opening-intro";
 import { INTRO_HEADER } from "@/lib/intro";
 import { listFavorites } from "@/services/favorites";
@@ -60,6 +61,8 @@ export default async function RootLayout({
           {/* Keyed by user so signing in/out swaps in a fresh store rather than leaking the previous user's lists. */}
           <LibraryProvider key={session?.userId ?? "guest"} signedIn={Boolean(session)} initialLibrary={initialLibrary}>
             {children}
+            {/* One shared footer on every route, so TMDB attribution is never missing from a page. */}
+            <Footer />
             <AssistantWidget />
           </LibraryProvider>
         </AuthProvider>

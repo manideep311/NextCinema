@@ -5,7 +5,6 @@ import { SUPPORTED_SEARCH_LANGUAGES } from "@/lib/search/interpret";
 import { JOURNEY_TYPE_LABELS } from "@/lib/journeys/definitions";
 import { FRANCHISE_JOURNEYS } from "@/lib/journeys/definitions/franchises";
 import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
 import { Hero } from "@/components/features/landing/hero";
 import { StatsSection, type LandingStat } from "@/components/features/landing/stats-section";
 import { LiveShowcase } from "@/components/features/landing/live-showcase";
@@ -50,7 +49,6 @@ export default async function Home() {
       <HowItWorks />
       <Faq />
       <Cta />
-      <Footer />
     </>
   );
 }
