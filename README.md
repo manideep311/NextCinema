@@ -2,9 +2,9 @@
 
 *Every great story begins with a good recommendation.*
 
-An AI-powered movie recommendation platform built on Next.js 16, TMDB, and a
-homegrown similarity-scoring recommendation engine that explains *why* each
-match was picked.
+Movie discovery with explainable content-based recommendations, built on
+Next.js 16 and TMDB. A homegrown similarity score ranks each candidate and
+shows *why* it was picked.
 
 ## Stack
 
@@ -36,7 +36,7 @@ match was picked.
    | `MONGODB_DB` | — | Database name, defaults to `cinematch` |
    | `AUTH_SECRET` | sign in / sign up | Generate with `openssl rand -base64 32` |
 
-   The app still runs and is browsable as a guest without `MONGODB_URI`/`AUTH_SECRET` set — browsing, search, trending, and categories all stay open. Favorites, watchlist, personalized recommendations, recently-viewed history, and the AI assistant all require an account.
+   The app still runs and is browsable as a guest without `MONGODB_URI`/`AUTH_SECRET` set — browsing, search, trending, and categories all stay open. Favorites, watchlist, personalized recommendations, recently-viewed history, and the assistant all require an account.
 
 3. **Create the database indexes** (once `MONGODB_URI` is set):
 
