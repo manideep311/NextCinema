@@ -21,3 +21,10 @@ export async function stopTestDatabase(): Promise<void> {
   await server?.stop();
   server = undefined;
 }
+
+/** Creates the production indexes (lib/db/indexes.ts) — the unique ones are what make writes idempotent. */
+export async function applyIndexes(): Promise<void> {
+  const [{ getDb }, { INDEX_SPECS }] = await Promise.all([import("@/lib/db"), import("@/lib/db/indexes")]);
+  const db = await getDb();
+  for (const [collection, specs] of Object.entries(INDEX_SPECS)) await db.collection(collection).createIndexes(specs);
+}
