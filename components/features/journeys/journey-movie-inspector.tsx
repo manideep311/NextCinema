@@ -8,8 +8,7 @@ import type { ResolvedJourneyMovie } from "@/types/journey";
 import { WatchlistButton } from "@/components/features/movies/watchlist-button";
 import { WatchedButton } from "@/components/features/journeys/watched-button";
 import { modalVariants, modalTransition } from "@/components/motion/motion-config";
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 function formatRuntime(minutes: number | null): string | null {
   if (!minutes) return null;
@@ -76,7 +75,7 @@ export function JourneyMovieInspector({ journeyId, movie, position, totalInOrder
               <div className="relative w-20 aspect-[2/3] shrink-0 rounded-lg overflow-hidden ring-1 ring-white/10">
                 {movie.posterPath ? (
                   <Image
-                    src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
+                    src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
                     alt={movie.title}
                     fill
                     sizes="80px"

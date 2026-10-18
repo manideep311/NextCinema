@@ -1,11 +1,11 @@
 ﻿import Image from "next/image";
 import type { TmdbCastMember } from "@/types/tmdb";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface CastListProps {
   cast: TmdbCastMember[];
 }
 
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 const MAX_DISPLAYED = 8;
 
 export function CastList({ cast }: CastListProps) {
@@ -20,7 +20,7 @@ export function CastList({ cast }: CastListProps) {
           <div className="w-24 h-24 rounded-full overflow-hidden glass mb-2 mx-auto">
             {member.profile_path ? (
               <Image
-                src={`${IMAGE_BASE_URL}/w185${member.profile_path}`}
+                src={`${TMDB_IMAGE_BASE_URL}/w185${member.profile_path}`}
                 alt={member.name}
                 width={185}
                 height={185}

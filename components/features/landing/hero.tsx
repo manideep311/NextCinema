@@ -7,6 +7,7 @@ import Image from "next/image";
 import { FloatingMovieCard } from "@/components/features/landing/floating-movie-card";
 import { SearchDemo } from "@/components/features/landing/search-demo";
 import type { MovieProfile } from "@/types/movie";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface HeroProps {
   /** A handful of trending movies to decorate the hero with — passed in
@@ -126,7 +127,7 @@ export function Hero({ featuredMovies }: HeroProps) {
             >
               {movie.posterPath && (
                 <Image
-                  src={`${process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
+                  src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
                   alt={movie.title}
                   fill
                   sizes="96px"

@@ -6,8 +6,7 @@ import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
 import { Play, PartyPopper } from "lucide-react";
 import type { JourneyProgress } from "@/types/journey";
 import { moviePosterLayoutId, POSTER_TRANSITION } from "@/components/motion/movie-poster-transition";
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 function formatRuntime(minutes: number | null): string | null {
   if (!minutes) return null;
@@ -60,7 +59,7 @@ export function JourneyHero({ journeyName, progress }: JourneyHeroProps) {
             >
               {nextMovie.posterPath ? (
                 <Image
-                  src={`${IMAGE_BASE_URL}/w342${nextMovie.posterPath}`}
+                  src={`${TMDB_IMAGE_BASE_URL}/w342${nextMovie.posterPath}`}
                   alt={nextMovie.title}
                   fill
                   sizes="(max-width: 768px) 128px, 160px"

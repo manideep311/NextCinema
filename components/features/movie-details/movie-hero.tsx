@@ -8,6 +8,7 @@ import { FavoriteButton } from "@/components/features/movies/favorite-button";
 import { WatchlistButton } from "@/components/features/movies/watchlist-button";
 import { moviePosterLayoutId, POSTER_TRANSITION } from "@/components/motion/movie-poster-transition";
 import type { MovieProfile } from "@/types/movie";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface MovieHeroProps {
   movie: MovieProfile;
@@ -15,8 +16,6 @@ interface MovieHeroProps {
   tagline: string | null;
   runtime: number | null;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 function formatRuntime(minutes: number | null): string | null {
   if (!minutes) return null;
@@ -46,7 +45,7 @@ export function MovieHero({ movie, backdropPath, tagline, runtime }: MovieHeroPr
             className="absolute inset-0"
           >
             <Image
-              src={`${IMAGE_BASE_URL}/w1280${backdropPath}`}
+              src={`${TMDB_IMAGE_BASE_URL}/w1280${backdropPath}`}
               alt=""
               fill
               className="object-cover"
@@ -73,7 +72,7 @@ export function MovieHero({ movie, backdropPath, tagline, runtime }: MovieHeroPr
               className="relative aspect-[2/3]"
             >
               <Image
-                src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
+                src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
                 alt={movie.title}
                 fill
                 sizes="(max-width: 768px) 128px, 192px"

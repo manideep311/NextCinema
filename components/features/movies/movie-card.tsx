@@ -8,6 +8,7 @@ import type { MovieProfile } from "@/types/movie";
 import { FavoriteButton } from "@/components/features/movies/favorite-button";
 import { WatchlistButton } from "@/components/features/movies/watchlist-button";
 import { moviePosterLayoutId, POSTER_TRANSITION } from "@/components/motion/movie-poster-transition";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface MovieCardProps {
   movie: Pick<MovieProfile, "id" | "title" | "posterPath" | "voteAverage" | "releaseYear">;
@@ -17,8 +18,6 @@ interface MovieCardProps {
    *  recommendation engine; plain grids like Trending don't, and that's fine). */
   reason?: string;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /**
  * Poster-forward movie card — the image is the card. Title and match score
@@ -51,7 +50,7 @@ export function MovieCard({ movie, matchScore, reason }: MovieCardProps) {
               className="absolute inset-0 overflow-hidden"
             >
               <Image
-                src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
+                src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
                 alt={movie.title}
                 fill
                 sizes="(max-width: 768px) 45vw, 200px"

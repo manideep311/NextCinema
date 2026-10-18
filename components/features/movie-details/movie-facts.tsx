@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { DollarSign, Building2, Languages, Circle } from "lucide-react";
 import type { TmdbProductionCompany, TmdbSpokenLanguage } from "@/types/tmdb";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 export interface MovieFactsProps {
   budget: number;
@@ -9,8 +10,6 @@ export interface MovieFactsProps {
   productionCompanies: TmdbProductionCompany[];
   spokenLanguages: TmdbSpokenLanguage[];
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 /** Used by the page to decide whether to render the "Movie Facts" heading
  *  at all — status is nearly always present, but this guards the rare case
@@ -85,7 +84,7 @@ export function MovieFacts({ budget, revenue, status, productionCompanies, spoke
                 // chip behind each one keeps them legible without flattening them to white.
                 <div key={company.id} className="bg-white/90 rounded-md px-2.5 py-1.5">
                   <Image
-                    src={`${IMAGE_BASE_URL}/w200${company.logo_path}`}
+                    src={`${TMDB_IMAGE_BASE_URL}/w200${company.logo_path}`}
                     alt={company.name}
                     width={80}
                     height={30}

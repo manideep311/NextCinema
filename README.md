@@ -31,7 +31,7 @@ shows *why* it was picked.
    | Variable | Required for | Notes |
    |---|---|---|
    | `TMDB_API_READ_ACCESS_TOKEN` | all movie data | [Get one free from TMDB](https://www.themoviedb.org/settings/api) |
-   | `NEXT_PUBLIC_TMDB_IMAGE_BASE_URL` | posters/backdrops | Defaults to `https://image.tmdb.org/t/p` |
+   | `NEXT_PUBLIC_TMDB_IMAGE_BASE_URL` | — (optional) | Image CDN base; defaults to `https://image.tmdb.org/t/p` (`lib/tmdb-images.ts`). A different host must also be added to `images.remotePatterns` in `next.config.ts` |
    | `MONGODB_URI` | accounts, favorites, watchlist, history | [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register) has a free tier, or run MongoDB locally |
    | `MONGODB_DB` | — | Database name, defaults to `cinematch` |
    | `AUTH_SECRET` | sign in / sign up | Generate with `openssl rand -base64 32` |

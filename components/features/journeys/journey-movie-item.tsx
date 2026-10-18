@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Check, Play } from "lucide-react";
 import type { ResolvedJourneyMovie } from "@/types/journey";
 import { moviePosterLayoutId, POSTER_TRANSITION } from "@/components/motion/movie-poster-transition";
+import { TMDB_IMAGE_BASE_URL } from "@/lib/tmdb-images";
 
 interface JourneyMovieItemProps {
   movie: ResolvedJourneyMovie;
@@ -13,8 +14,6 @@ interface JourneyMovieItemProps {
    *  Journey previews (dashboard strip, movie-detail mini list). */
   compact?: boolean;
 }
-
-const IMAGE_BASE_URL = process.env.NEXT_PUBLIC_TMDB_IMAGE_BASE_URL;
 
 function formatRuntime(minutes: number | null): string | null {
   if (!minutes) return null;
@@ -58,7 +57,7 @@ export function JourneyMovieItem({ movie, compact = false }: JourneyMovieItemPro
             className="absolute inset-0"
           >
             <Image
-              src={`${IMAGE_BASE_URL}/w342${movie.posterPath}`}
+              src={`${TMDB_IMAGE_BASE_URL}/w342${movie.posterPath}`}
               alt={movie.title}
               fill
               sizes={compact ? "112px" : "220px"}
