@@ -9,6 +9,7 @@
     "lint": "eslint",
     "db:indexes": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local lib/db/create-indexes.ts",
     "test": "tsx --conditions=react-server --test tests/*.test.ts && tsx --test tests/*.test.tsx",
+    "eval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/evaluate-recommendations.ts",
     "verify:live": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/verify-live.ts"
   },
   "dependencies": {
