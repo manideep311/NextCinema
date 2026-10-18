@@ -29,8 +29,13 @@ export function createLibraryRoutes(listKey: "favorites" | "watchlist", service:
     const limited = enforceRateLimit(request, "library-read", auth.session.userId);
     if (limited) return limited;
 
-    const movies = await service.list(auth.session.userId);
-    return NextResponse.json({ [listKey]: movies }, { headers: PRIVATE_NO_STORE });
+    try {
+      const movies = await service.list(auth.session.userId);
+      return NextResponse.json({ [listKey]: movies }, { headers: PRIVATE_NO_STORE });
+    } catch {
+      // A database outage becomes a clean JSON error instead of an unhandled 500 page.
+      return jsonError(503, "Couldn't load your list right now — please try again.", PRIVATE_NO_STORE);
+    }
   }
 
   async function POST(request: NextRequest) {
@@ -69,8 +74,12 @@ export function createLibraryRoutes(listKey: "favorites" | "watchlist", service:
     const body = await parseJsonBody(request, movieRefBodySchema);
     if (!body.ok) return body.response;
 
-    await service.remove(auth.session.userId, body.data.movieId);
-    return NextResponse.json({ ok: true }, { headers: PRIVATE_NO_STORE });
+    try {
+      await service.remove(auth.session.userId, body.data.movieId);
+      return NextResponse.json({ ok: true }, { headers: PRIVATE_NO_STORE });
+    } catch {
+      return jsonError(503, "Couldn't remove that right now — please try again.", PRIVATE_NO_STORE);
+    }
   }
 
   return { GET, POST, DELETE };
