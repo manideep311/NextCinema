@@ -75,6 +75,11 @@ function isRetryableNetworkError(error: unknown): boolean {
   );
 }
 
+/** Rate limited (429) or any server-side failure (5xx, including a plain 500) — worth another try. */
+export function isRetryableStatus(status: number): boolean {
+  return status === 429 || (status >= 500 && status <= 599);
+}
+
 function retryDelayMs(response: Response | null, attempt: number): number {
   const retryAfter = response?.headers.get("retry-after");
   if (retryAfter && /^\d+$/.test(retryAfter)) {
@@ -96,9 +101,7 @@ async function performFetch<T>(url: string, path: string, revalidateSeconds: num
 
       if (response.ok) return (await response.json()) as T;
 
-      // Rate limited or a transient TMDB-side failure — worth another try.
-      const retryable = response.status === 429 || response.status === 502 || response.status === 503 || response.status === 504;
-      if (!retryable || attempt >= MAX_ATTEMPTS) {
+      if (!isRetryableStatus(response.status) || attempt >= MAX_ATTEMPTS) {
         throw new TmdbApiError(`TMDB request failed with status ${response.status}`, response.status, path);
       }
     } catch (error) {
