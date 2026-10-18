@@ -10,8 +10,6 @@ import type { TmdbMovie } from "@/types/tmdb";
 const MAX_CANDIDATES = 20;
 /** Enough for the Recommendations page; other surfaces slice what they need. */
 export const MAX_RECOMMENDATIONS = 20;
-/** Candidates with fewer votes are noise — rarely a movie anyone would want recommended. */
-const MIN_CANDIDATE_VOTES = 10;
 
 /** A scored recommendation, slimmed to what the UI renders (serializable for the cache). */
 export interface MovieRecommendation {
@@ -29,8 +27,10 @@ export interface MovieRecommendation {
 /**
  * Cheap pre-filter on data TMDB's /similar already returned, applied
  * *before* paying for a full profile request per candidate: drops
- * duplicates, the seed itself, unreleased titles, poster-less entries, and
- * near-zero-vote noise.
+ * duplicates, the seed itself, unreleased titles and poster-less entries.
+ * There is no vote-count floor: thinly-voted candidates stay in the pool
+ * and the engine's Bayesian-adjusted rating keeps a handful of votes from
+ * counting as a strong rating.
  */
 export function selectCandidates(seedId: number, similar: TmdbMovie[], today: string): TmdbMovie[] {
   const seen = new Set<number>([seedId]);
@@ -40,7 +40,6 @@ export function selectCandidates(seedId: number, similar: TmdbMovie[], today: st
     seen.add(movie.id);
     if (!movie.poster_path || movie.adult) continue;
     if (!movie.release_date || movie.release_date > today) continue;
-    if (movie.vote_count < MIN_CANDIDATE_VOTES) continue;
     picked.push(movie);
     if (picked.length >= MAX_CANDIDATES) break;
   }
