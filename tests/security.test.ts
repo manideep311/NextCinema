@@ -182,3 +182,19 @@ test("time-zone greeting input is validated", () => {
   assert.equal(hourInTimeZone("Not/AZone"), null);
   assert.equal(hourInTimeZone("'; drop"), null);
 });
+
+test("only the user role exists; a validly signed token claiming admin or premium is rejected", async () => {
+  const { USER_ROLES } = await import("@/lib/auth/token");
+  assert.deepEqual([...USER_ROLES], ["user"]);
+  for (const role of ["admin", "premium"]) {
+    const forged = await new SignJWT({ email: USER.email, name: USER.name, role })
+      .setProtectedHeader({ alg: "HS256" })
+      .setSubject(USER.userId)
+      .setIssuer("nextcinema")
+      .setAudience("nextcinema:web")
+      .setIssuedAt()
+      .setExpirationTime("1h")
+      .sign(KEY);
+    assert.equal(await verifySessionToken(forged), null, role);
+  }
+});

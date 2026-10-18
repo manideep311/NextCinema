@@ -40,7 +40,12 @@ const MIN_SECRET_LENGTH = 32;
 /** Real tokens are a few hundred bytes — anything huge is rejected before parsing. */
 const MAX_TOKEN_LENGTH = 4096;
 
-export const USER_ROLES = ["user", "premium", "admin"] as const;
+/**
+ * The only role that exists. "premium" and "admin" were declared but
+ * nothing granted or checked them, so they're gone; a token claiming
+ * either now fails validation and is treated as signed out.
+ */
+export const USER_ROLES = ["user"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export interface SessionPayload {
