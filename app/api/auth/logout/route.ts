@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { clearSessionCookie } from "@/lib/auth/session";
+import { clearSessionCookie } from "@/lib/auth/request-session";
 import { PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 
 export async function POST(request: NextRequest) {

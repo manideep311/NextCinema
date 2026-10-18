@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { requireRequestSession } from "@/lib/auth/session";
+import { requireRequestSession } from "@/lib/auth/request-session";
 import { enforceRateLimit, jsonError, PRIVATE_NO_STORE } from "@/lib/http";
 import { limitParamSchema, parseOptionalParam } from "@/lib/validation";
 import { getForYou } from "@/services/for-you";

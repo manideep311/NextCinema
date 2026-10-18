@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getRequestSession } from "@/lib/auth/session";
+import { getRequestSession } from "@/lib/auth/request-session";
 import { PRIVATE_NO_STORE } from "@/lib/http";
 
 /** Who is signed in, straight from the verified cookie (no DB round-trip). Never cached. */

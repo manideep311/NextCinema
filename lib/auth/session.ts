@@ -2,19 +2,12 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { NextRequest, NextResponse } from "next/server";
-import {
-  SESSION_COOKIE,
-  sessionCookieOptions,
-  signSessionToken,
-  verifySessionToken,
-  type SessionPayload,
-  type VerifiedSession,
-} from "@/lib/auth/token";
-import { jsonError, PRIVATE_NO_STORE } from "@/lib/http";
+import { SESSION_COOKIE, verifySessionToken, type SessionPayload, type VerifiedSession } from "@/lib/auth/token";
 
 export { SESSION_COOKIE };
 export type { SessionPayload, VerifiedSession };
+
+// Server Component helpers. Route Handlers use lib/auth/request-session.ts.
 
 /**
  * The verified session for the current Server Component render, or null.
@@ -32,32 +25,4 @@ export async function requirePageSession(returnTo: string): Promise<VerifiedSess
   const session = await getSession();
   if (!session) redirect(`/login?redirect=${encodeURIComponent(returnTo)}`);
   return session;
-}
-
-/** Route Handler variant — reads the cookie straight off the request. */
-export function getRequestSession(request: NextRequest): Promise<VerifiedSession | null> {
-  return verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
-}
-
-/**
- * The first step of every user-scoped API route:
- *   request → verify session → derive identity → (caller authorizes + acts)
- * The user id used for every subsequent query comes from here — never from
- * a body, query string, or path parameter.
- */
-export async function requireRequestSession(
-  request: NextRequest
-): Promise<{ session: VerifiedSession; response?: undefined } | { session?: undefined; response: NextResponse }> {
-  const session = await getRequestSession(request);
-  if (!session) return { response: jsonError(401, "Sign in to continue.", PRIVATE_NO_STORE) };
-  return { session };
-}
-
-export async function attachSessionCookie(response: NextResponse, payload: SessionPayload): Promise<void> {
-  const token = await signSessionToken(payload);
-  response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
-}
-
-export function clearSessionCookie(response: NextResponse): void {
-  response.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
 }

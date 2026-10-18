@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { AccountUnavailableError, createUser } from "@/services/auth";
-import { attachSessionCookie } from "@/lib/auth/session";
+import { attachSessionCookie } from "@/lib/auth/request-session";
 import { signupSchema } from "@/lib/auth/schemas";
 import { enforceRateLimit, jsonError, parseJsonBody, PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 

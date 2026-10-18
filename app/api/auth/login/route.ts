@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authenticateUser, InvalidCredentialsError } from "@/services/auth";
-import { attachSessionCookie } from "@/lib/auth/session";
+import { attachSessionCookie } from "@/lib/auth/request-session";
 import { loginSchema } from "@/lib/auth/schemas";
 import { enforceRateLimit, getClientIp, jsonError, parseJsonBody, PRIVATE_NO_STORE, rejectCrossSite } from "@/lib/http";
 
