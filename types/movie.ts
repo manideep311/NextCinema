@@ -22,6 +22,7 @@ export interface MovieProfile {
   directors: CreditedPerson[];
   popularity: number;
   voteAverage: number;
+  voteCount: number;
 }
 
 export interface RecommendationReason {

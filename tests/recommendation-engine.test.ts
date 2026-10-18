@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { explainScore, recommendMovies, scoreMovie, WEIGHTS } from "@/lib/recommendation-engine";
+import { bayesianRating } from "@/lib/rating";
 import { mapExtrasToProfile } from "@/lib/movie-mapper";
 import type { TmdbMovieWithExtras } from "@/services/tmdb";
 import type { MovieProfile } from "@/types/movie";
@@ -17,6 +18,7 @@ function profile(overrides: Partial<MovieProfile> & { id: number }): MovieProfil
     directors: [],
     popularity: 10,
     voteAverage: 7,
+    voteCount: 1000,
     ...overrides,
   };
 }
@@ -47,10 +49,14 @@ function randomProfile(id: number, random: () => number): MovieProfile {
     directors: random() < 0.3 ? [DIRECTOR_X] : random() < 0.5 ? [DIRECTOR_Y] : [],
     popularity: Math.round(random() * 300),
     voteAverage: Math.round(random() * 100) / 10,
+    voteCount: Math.round(random() * 5000),
   });
 }
 
-/** The original (pre-optimization) weighted sum — the reference the new engine must rank identically to. */
+/** Independent re-implementation of the documented formula — the engine must agree with it exactly. */
+const rating = (movie: MovieProfile) => bayesianRating(movie.voteAverage, movie.voteCount, 100);
+const closeness = (a: number, b: number, scale: number) => Math.max(0, 1 - Math.abs(a - b) / scale);
+
 function referenceRaw(base: MovieProfile, candidate: MovieProfile): number {
   const jaccard = (a: (string | number)[], b: (string | number)[]) => {
     if (!a.length || !b.length) return 0;
@@ -65,8 +71,8 @@ function referenceRaw(base: MovieProfile, candidate: MovieProfile): number {
     jaccard(base.keywords, candidate.keywords) * 0.25 +
     jaccard(base.cast.map((p) => p.id), candidate.cast.map((p) => p.id)) * 0.15 +
     jaccard(base.directors.map((p) => p.id), candidate.directors.map((p) => p.id)) * 0.1 +
-    Math.min(1, candidate.popularity / 100) * 0.05 +
-    Math.min(1, candidate.voteAverage / 10) * 0.1
+    closeness(rating(base), rating(candidate), 3) * 0.1 +
+    closeness(Math.log10(1 + base.popularity), Math.log10(1 + candidate.popularity), 2) * 0.05
   );
 }
 
@@ -75,7 +81,7 @@ test("documented weights are unchanged and sum to 1", () => {
   assert.ok(Math.abs(Object.values(WEIGHTS).reduce((a, b) => a + b, 0) - 1) < 1e-9);
 });
 
-test("raw score matches the original algorithm exactly", () => {
+test("raw score matches the documented formula exactly", () => {
   const random = rng(42);
   for (let i = 0; i < 200; i++) {
     const base = randomProfile(1, random);
@@ -105,7 +111,7 @@ test("normalization never changes the ranking", () => {
 test("% match is 0–100 and normalized over signals the base movie actually has", () => {
   // Base has no keywords, cast, or director: only genre, rating, popularity are achievable.
   const base = profile({ id: 1, genreIds: [878], genreNames: ["Science Fiction"] });
-  const perfect = profile({ id: 2, genreIds: [878], genreNames: ["Science Fiction"], popularity: 500, voteAverage: 10 });
+  const perfect = profile({ id: 2, genreIds: [878], genreNames: ["Science Fiction"] });
   const breakdown = explainScore(base, perfect);
   assert.ok(Math.abs(breakdown.applicableWeight - (0.35 + 0.1 + 0.05)) < 1e-12);
   assert.equal(scoreMovie(base, perfect).score, 100);
@@ -127,7 +133,7 @@ test("recommendMovies drops the base movie and duplicate candidates", () => {
 test("reasons are built from real overlapping data", () => {
   const nolan = { id: 525, name: "Christopher Nolan" };
   const matthew = { id: 10297, name: "Matthew McConaughey" };
-  const base = profile({ id: 1, genreIds: [878, 18], genreNames: ["Science Fiction", "Drama"], keywords: ["Space"], cast: [matthew], directors: [nolan] });
+  const base = profile({ id: 1, genreIds: [878, 18], genreNames: ["Science Fiction", "Drama"], keywords: ["Space"], cast: [matthew], directors: [nolan], voteAverage: 8.4 });
   const candidate = profile({ id: 2, genreIds: [878], genreNames: ["Science Fiction"], keywords: ["space"], cast: [matthew], directors: [nolan], voteAverage: 8.1 });
   const labels = scoreMovie(base, candidate).reasons.map((r) => r.label);
   assert.deepEqual(labels, [
@@ -135,7 +141,7 @@ test("reasons are built from real overlapping data", () => {
     "Shares genres: Science Fiction",
     "Features Matthew McConaughey",
     "Similar themes: Space",
-    "Highly rated (8.1/10)",
+    "Similarly rated (8.1 vs 8.4)",
   ]);
 });
 
@@ -199,4 +205,31 @@ test("the TMDB mapper keeps every director once and the top five billed cast, wi
     { id: 19272, name: "Joe Russo" },
   ]);
   assert.deepEqual(mapped.cast.map((person) => person.id), [1000, 1001, 1002, 1003, 1004]);
+});
+
+test("rating is closeness of Bayesian-adjusted ratings, not a bonus for high ratings", () => {
+  const seed = profile({ id: 1, voteAverage: 7.0, voteCount: 5000 });
+  const same = profile({ id: 2, voteAverage: 7.0, voteCount: 5000 });
+  const muchHigher = profile({ id: 3, voteAverage: 9.5, voteCount: 5000 });
+  assert.equal(explainScore(seed, same).signals.rating, 1);
+  // A higher-rated movie is *less* similar to a 7.0 seed, not more.
+  assert.ok(explainScore(seed, muchHigher).signals.rating < 0.25);
+
+  // A 9.0 backed by three votes is shrunk toward 6.5, so it no longer looks like a 9.0 classic.
+  const classic = profile({ id: 4, voteAverage: 8.8, voteCount: 20000 });
+  const thinlyVoted = profile({ id: 5, voteAverage: 9.0, voteCount: 3 });
+  const wellVoted = profile({ id: 6, voteAverage: 8.6, voteCount: 15000 });
+  assert.ok(explainScore(classic, wellVoted).signals.rating > 0.9);
+  assert.ok(explainScore(classic, thinlyVoted).signals.rating < 0.35);
+});
+
+test("popularity is closeness on a log scale, so blockbusters don't win by default", () => {
+  const cultFavourite = profile({ id: 1, popularity: 5 });
+  const similarCult = profile({ id: 2, popularity: 6 });
+  const blockbuster = profile({ id: 3, popularity: 800 });
+  assert.ok(explainScore(cultFavourite, similarCult).signals.popularity > 0.95);
+  // More than two orders of magnitude apart → no popularity similarity.
+  assert.equal(explainScore(cultFavourite, blockbuster).signals.popularity, 0);
+  // Symmetric.
+  assert.equal(explainScore(blockbuster, cultFavourite).signals.popularity, explainScore(cultFavourite, blockbuster).signals.popularity);
 });

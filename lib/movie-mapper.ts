@@ -59,5 +59,6 @@ export function mapExtrasToProfile(data: TmdbMovieWithExtras): MovieProfile {
     directors: extractDirectors(data.credits.crew),
     popularity: data.popularity,
     voteAverage: data.vote_average,
+    voteCount: data.vote_count,
   };
 }

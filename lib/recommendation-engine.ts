@@ -1,5 +1,6 @@
 import type { CreditedPerson, MovieProfile, ScoredMovie, RecommendationReason } from "@/types/movie";
 import { clamp01 } from "@/lib/similarity";
+import { bayesianRating } from "@/lib/rating";
 
 // Pure, deterministic, explainable recommendation scoring. No I/O, no
 // TMDB calls, no randomness — the same inputs always produce the same
@@ -8,8 +9,10 @@ import { clamp01 } from "@/lib/similarity";
 
 /**
  * Signal weights (sum to 1.0). Genre + keyword overlap — the strongest
- * "these are genuinely similar" signals — dominate; rating and popularity
- * are light tie-breakers rather than the main driver.
+ * "these are genuinely similar" signals — dominate. Rating and popularity
+ * are light signals measured as *closeness to the seed movie*, so a
+ * blockbuster suggests blockbusters and a cult favourite suggests cult
+ * favourites, instead of everything leaning toward whatever is biggest.
  */
 export const WEIGHTS = {
   genre: 0.35,
@@ -22,8 +25,16 @@ export const WEIGHTS = {
 
 export type SignalName = keyof typeof WEIGHTS;
 
-/** Popularity is unbounded on TMDB (0–1000+), so it's capped before scoring. */
-const POPULARITY_CAP = 100;
+/**
+ * Bayesian prior strength for the rating signal: a movie needs about this
+ * many votes before its own average outweighs the global mean (see
+ * lib/rating.ts). Replaces a hard minimum-vote cutoff.
+ */
+export const RATING_PRIOR_VOTES = 100;
+/** Gap between Bayesian ratings (points out of 10) at which rating closeness reaches 0. */
+export const RATING_GAP_SCALE = 3;
+/** Gap in log10(1 + popularity) — orders of magnitude — at which popularity closeness reaches 0. */
+export const POPULARITY_GAP_SCALE = 2;
 
 export interface ScoreBreakdown {
   /** Per-signal similarity in [0, 1]. */
@@ -40,6 +51,8 @@ interface PreparedBase {
   keywords: Set<string>;
   castIds: Set<number>;
   directorIds: Set<number>;
+  rating: number;
+  logPopularity: number;
   applicableWeight: number;
 }
 
@@ -49,6 +62,21 @@ function lowerSet(values: string[]): Set<string> {
 
 function idSet(people: CreditedPerson[]): Set<number> {
   return new Set(people.map((person) => person.id));
+}
+
+/** Vote average shrunk toward the global mean by how few votes back it. */
+export function adjustedRating(movie: Pick<MovieProfile, "voteAverage" | "voteCount">): number {
+  return bayesianRating(movie.voteAverage, movie.voteCount, RATING_PRIOR_VOTES);
+}
+
+/** TMDB popularity spans ~0.1 to 1000+, so it's compared on a log scale. */
+export function logPopularity(movie: Pick<MovieProfile, "popularity">): number {
+  return Math.log10(1 + Math.max(0, movie.popularity));
+}
+
+/** 1 when equal, falling linearly to 0 at a gap of `scale`. */
+function closeness(a: number, b: number, scale: number): number {
+  return clamp01(1 - Math.abs(a - b) / scale);
 }
 
 /** |A∩B| / |A∪B| without materializing the union: |A∪B| = |A| + |B| − |A∩B|. */
@@ -83,6 +111,8 @@ function prepareBase(base: MovieProfile): PreparedBase {
     keywords: lowerSet(base.keywords),
     castIds: idSet(base.cast),
     directorIds: idSet(base.directors),
+    rating: adjustedRating(base),
+    logPopularity: logPopularity(base),
     applicableWeight: applicableWeightFor(base),
   };
 }
@@ -108,8 +138,8 @@ function scoreAgainst(prepared: PreparedBase, candidate: MovieProfile): { scored
     cast: jaccard(prepared.castIds, candidateCast),
     // Jaccard over *all* credited directors: 1 for the same director(s), 0.5 when one of two co-directors returns.
     director: jaccard(prepared.directorIds, candidateDirectors),
-    rating: clamp01(candidate.voteAverage / 10),
-    popularity: clamp01(candidate.popularity / POPULARITY_CAP),
+    rating: closeness(prepared.rating, adjustedRating(candidate), RATING_GAP_SCALE),
+    popularity: closeness(prepared.logPopularity, logPopularity(candidate), POPULARITY_GAP_SCALE),
   };
 
   let raw = 0;
@@ -159,8 +189,12 @@ function buildReasons(
     if (themes.length > 0) reasons.push({ type: "keyword", label: `Similar themes: ${themes.slice(0, 3).join(", ")}` });
   }
 
-  if (candidate.voteAverage >= 7.5) {
-    reasons.push({ type: "rating", label: `Highly rated (${candidate.voteAverage.toFixed(1)}/10)` });
+  // Only when the candidate has enough votes that its raw average (shown) and adjusted rating (scored) agree.
+  if (signals.rating >= 0.8 && candidate.voteCount >= RATING_PRIOR_VOTES) {
+    reasons.push({
+      type: "rating",
+      label: `Similarly rated (${candidate.voteAverage.toFixed(1)} vs ${base.voteAverage.toFixed(1)})`,
+    });
   }
 
   return reasons;
