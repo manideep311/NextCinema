@@ -24,7 +24,8 @@ export async function GET(request: NextRequest) {
   try {
     const result = await getForYou(auth.session.userId, limit.value);
     return NextResponse.json(
-      { basis: result.basis, basedOnTitle: result.basedOn?.title ?? null, movies: result.movies },
+      // basedOnTitle: the favorite the *top* pick was matched with (the assistant shows only that pick).
+      { basis: result.basis, basedOnTitle: result.movies[0]?.explanation?.comparedWith ?? null, movies: result.movies },
       { headers: PRIVATE_NO_STORE }
     );
   } catch {

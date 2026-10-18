@@ -8,7 +8,8 @@ import { getForYou } from "@/services/for-you";
 /**
  * Personalized picks, rendered on the server and streamed in (wrap in
  * <Suspense fallback={<ForYouSectionSkeleton />}>) — no client-side fetch
- * waterfall. Seeded from the user's latest favorite; with no favorites
+ * waterfall. Seeded from the user's five most recent favorites (newest
+ * weighted most — lib/personalization.ts); with no favorites
  * yet it shows popular picks *without* a match score, since popularity
  * isn't similarity.
  */
@@ -36,7 +37,8 @@ export async function ForYouSection({ userId, limit = 10 }: { userId: string; li
       <div className="-mt-2 mb-1 text-sm text-muted">
         {result.basis === "similarity" ? (
           <span>
-            Because you liked <span className="text-text font-medium">{result.basedOn.title}</span>
+            {result.basedOn.length === 1 ? "Because you liked " : "Blended from your recent favorites: "}
+            <span className="text-text font-medium">{result.basedOn.map((seed) => seed.title).join(", ")}</span>
           </span>
         ) : (
           <span>Favorite a movie to unlock personalized picks</span>
