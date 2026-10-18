@@ -6,7 +6,6 @@
 export const GREETING_LINES = [
   "Hey, it's Bujji. What are we watching tonight?",
   "Ready when you are.",
-  "500,000+ movie relationships, one good pick.",
 ];
 
 export const THINKING_LINES: Record<"recommend" | "trending" | "surprise" | "search", string[]> = {
