@@ -31,6 +31,19 @@ export interface RecommendationReason {
   label: string;
 }
 
+/** One signal's part in a match score — what the "Why this?" panel draws. */
+export interface SignalExplanation {
+  signal: "genre" | "keyword" | "cast" | "director" | "rating" | "popularity";
+  /** Similarity for this signal, in [0, 1]. */
+  similarity: number;
+  /** Nominal weight (lib/recommendation-engine.ts WEIGHTS). */
+  weight: number;
+  /** False when either movie lacks the data; its weight is then spread over the others. */
+  applicable: boolean;
+  /** This signal's share of the final score: similarity × weight ÷ total applicable weight. */
+  contribution: number;
+}
+
 export interface ScoredMovie {
   movie: MovieProfile;
   /** 0–100, higher = more similar to the base movie */

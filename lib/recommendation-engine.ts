@@ -1,4 +1,4 @@
-import type { CreditedPerson, MovieProfile, ScoredMovie, RecommendationReason } from "@/types/movie";
+import type { CreditedPerson, MovieProfile, ScoredMovie, RecommendationReason, SignalExplanation } from "@/types/movie";
 import { clamp01 } from "@/lib/similarity";
 import { bayesianRating } from "@/lib/rating";
 
@@ -25,6 +25,8 @@ export const WEIGHTS = {
 
 export type SignalName = keyof typeof WEIGHTS;
 
+const SIGNAL_NAMES = Object.keys(WEIGHTS) as SignalName[];
+
 /**
  * Bayesian prior strength for the rating signal: a movie needs about this
  * many votes before its own average outweighs the global mean (see
@@ -37,12 +39,16 @@ export const RATING_GAP_SCALE = 3;
 export const POPULARITY_GAP_SCALE = 2;
 
 export interface ScoreBreakdown {
-  /** Per-signal similarity in [0, 1]. */
+  /** Per-signal similarity in [0, 1] (0 for signals that don't apply). */
   signals: Record<SignalName, number>;
-  /** Weighted sum over *all* signals — the original, un-normalized score in [0, 1]. */
+  /** Per-signal similarity, weight, applicability and share of the score, in WEIGHTS order. */
+  explanation: SignalExplanation[];
+  /** Σ similarity × weight over the applicable signals. */
   raw: number;
-  /** Sum of weights for signals the base movie actually has data for. */
+  /** Σ weight over the applicable signals — the denominator. */
   applicableWeight: number;
+  /** raw / applicableWeight, in [0, 1]. The displayed "% Match" is this × 100, rounded. */
+  normalized: number;
 }
 
 interface PreparedBase {
@@ -53,7 +59,6 @@ interface PreparedBase {
   directorIds: Set<number>;
   rating: number;
   logPopularity: number;
-  applicableWeight: number;
 }
 
 function lowerSet(values: string[]): Set<string> {
@@ -88,20 +93,23 @@ function jaccard<T>(base: Set<T>, candidate: Set<T>): number {
 }
 
 /**
- * Signals the base movie has no data for (no keywords on TMDB, no credited
- * director, ...) can never contribute for *any* candidate. They're excluded
- * from the denominator so the displayed "% Match" is a share of the
- * similarity that was actually achievable for this base movie. Because the
- * denominator is identical for every candidate of a given base, this
- * rescales scores without changing their ranking.
+ * Which signals can be measured for this pair. A signal the *seed* has no
+ * data for (no keywords on TMDB, no credited director, ...) can never
+ * contribute. Keywords and cast are also skipped when the *candidate* has
+ * none: TMDB simply has no data, which says nothing about similarity, so
+ * the candidate is judged on the remaining signals instead of being
+ * scored 0 on them. Rating and popularity always apply (the Bayesian
+ * prior covers movies with no votes).
  */
-function applicableWeightFor(base: MovieProfile): number {
-  let weight = WEIGHTS.rating + WEIGHTS.popularity;
-  if (base.genreIds.length > 0) weight += WEIGHTS.genre;
-  if (base.keywords.length > 0) weight += WEIGHTS.keyword;
-  if (base.cast.length > 0) weight += WEIGHTS.cast;
-  if (base.directors.length > 0) weight += WEIGHTS.director;
-  return weight;
+function applicability(base: MovieProfile, candidate: MovieProfile): Record<SignalName, boolean> {
+  return {
+    genre: base.genreIds.length > 0,
+    keyword: base.keywords.length > 0 && candidate.keywords.length > 0,
+    cast: base.cast.length > 0 && candidate.cast.length > 0,
+    director: base.directors.length > 0,
+    rating: true,
+    popularity: true,
+  };
 }
 
 function prepareBase(base: MovieProfile): PreparedBase {
@@ -113,7 +121,6 @@ function prepareBase(base: MovieProfile): PreparedBase {
     directorIds: idSet(base.directors),
     rating: adjustedRating(base),
     logPopularity: logPopularity(base),
-    applicableWeight: applicableWeightFor(base),
   };
 }
 
@@ -131,8 +138,9 @@ function scoreAgainst(prepared: PreparedBase, candidate: MovieProfile): { scored
   const candidateKeywords = lowerSet(candidate.keywords);
   const candidateCast = idSet(candidate.cast);
   const candidateDirectors = idSet(candidate.directors);
+  const applies = applicability(prepared.profile, candidate);
 
-  const signals: Record<SignalName, number> = {
+  const similarity: Record<SignalName, number> = {
     genre: jaccard(prepared.genreIds, new Set(candidate.genreIds)),
     keyword: jaccard(prepared.keywords, candidateKeywords),
     cast: jaccard(prepared.castIds, candidateCast),
@@ -143,14 +151,30 @@ function scoreAgainst(prepared: PreparedBase, candidate: MovieProfile): { scored
   };
 
   let raw = 0;
-  for (const name of Object.keys(WEIGHTS) as SignalName[]) raw += signals[name] * WEIGHTS[name];
+  let applicableWeight = 0;
+  const signals = {} as Record<SignalName, number>;
+  for (const name of SIGNAL_NAMES) {
+    signals[name] = applies[name] ? similarity[name] : 0;
+    if (!applies[name]) continue;
+    raw += similarity[name] * WEIGHTS[name];
+    applicableWeight += WEIGHTS[name];
+  }
+  // Rating and popularity always apply, so the denominator is never 0.
+  const normalized = clamp01(raw / applicableWeight);
+
+  const explanation: SignalExplanation[] = SIGNAL_NAMES.map((name) => ({
+    signal: name,
+    similarity: signals[name],
+    weight: WEIGHTS[name],
+    applicable: applies[name],
+    contribution: applies[name] ? (signals[name] * WEIGHTS[name]) / applicableWeight : 0,
+  }));
 
   const reasons = buildReasons(prepared, candidate, signals, candidateKeywords, candidateCast, candidateDirectors);
-  const score = Math.round(clamp01(raw / prepared.applicableWeight) * 100);
 
   return {
-    scored: { movie: candidate, score, reasons },
-    breakdown: { signals, raw, applicableWeight: prepared.applicableWeight },
+    scored: { movie: candidate, score: Math.round(normalized * 100), reasons },
+    breakdown: { signals, explanation, raw, applicableWeight, normalized },
   };
 }
 
@@ -205,7 +229,7 @@ export function scoreMovie(base: MovieProfile, candidate: MovieProfile): ScoredM
   return scoreAgainst(prepareBase(base), candidate).scored;
 }
 
-/** Same as `scoreMovie`, plus the per-signal breakdown — for tests and debugging. */
+/** Same as `scoreMovie`, but returns the per-signal breakdown behind the number. */
 export function explainScore(base: MovieProfile, candidate: MovieProfile): ScoreBreakdown {
   return scoreAgainst(prepareBase(base), candidate).breakdown;
 }
@@ -214,27 +238,29 @@ export function explainScore(base: MovieProfile, candidate: MovieProfile): Score
  * Scores and ranks a candidate pool against a base movie, returning the
  * top N. The base is prepared once (not per candidate), duplicate
  * candidates and the base movie itself are dropped, and ties are broken
- * deterministically (raw score, then rating, then TMDB id).
+ * deterministically (normalized score, then adjusted rating, then TMDB id).
+ * Ranking uses the normalized score because each candidate's denominator
+ * depends on which of its signals apply.
  */
 export function recommendMovies(base: MovieProfile, candidates: MovieProfile[], topN = 10): ScoredMovie[] {
   const prepared = prepareBase(base);
   const seen = new Set<number>([base.id]);
-  const results: { scored: ScoredMovie; raw: number }[] = [];
+  const results: { scored: ScoredMovie; normalized: number; rating: number }[] = [];
 
   for (const candidate of candidates) {
     if (seen.has(candidate.id)) continue;
     seen.add(candidate.id);
     const { scored, breakdown } = scoreAgainst(prepared, candidate);
-    results.push({ scored, raw: breakdown.raw });
+    results.push({ scored, normalized: breakdown.normalized, rating: adjustedRating(candidate) });
   }
 
-  // Raw scores are compared at 1e-9 precision so floating-point summation
-  // order can never decide between two genuinely tied candidates.
-  const precise = (raw: number) => Math.round(raw * 1e9);
+  // Compared at 1e-9 precision so floating-point summation order can never
+  // decide between two genuinely tied candidates.
+  const precise = (value: number) => Math.round(value * 1e9);
   results.sort(
     (a, b) =>
-      precise(b.raw) - precise(a.raw) ||
-      b.scored.movie.voteAverage - a.scored.movie.voteAverage ||
+      precise(b.normalized) - precise(a.normalized) ||
+      precise(b.rating) - precise(a.rating) ||
       a.scored.movie.id - b.scored.movie.id
   );
 

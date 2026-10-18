@@ -57,23 +57,39 @@ function randomProfile(id: number, random: () => number): MovieProfile {
 const rating = (movie: MovieProfile) => bayesianRating(movie.voteAverage, movie.voteCount, 100);
 const closeness = (a: number, b: number, scale: number) => Math.max(0, 1 - Math.abs(a - b) / scale);
 
-function referenceRaw(base: MovieProfile, candidate: MovieProfile): number {
-  const jaccard = (a: (string | number)[], b: (string | number)[]) => {
-    if (!a.length || !b.length) return 0;
-    const norm = (v: string | number) => (typeof v === "string" ? v.toLowerCase() : v);
-    const setA = new Set(a.map(norm));
-    const setB = new Set(b.map(norm));
-    const inter = [...setA].filter((v) => setB.has(v)).length;
-    return inter / new Set([...setA, ...setB]).size;
-  };
-  return (
-    jaccard(base.genreIds, candidate.genreIds) * 0.35 +
-    jaccard(base.keywords, candidate.keywords) * 0.25 +
-    jaccard(base.cast.map((p) => p.id), candidate.cast.map((p) => p.id)) * 0.15 +
-    jaccard(base.directors.map((p) => p.id), candidate.directors.map((p) => p.id)) * 0.1 +
-    closeness(rating(base), rating(candidate), 3) * 0.1 +
-    closeness(Math.log10(1 + base.popularity), Math.log10(1 + candidate.popularity), 2) * 0.05
-  );
+/**
+ * Normalized score per the documented formula: Σ similarity × weight over
+ * applicable signals, divided by Σ weight over those signals. Keywords and
+ * cast apply only when both movies have them; genre and director when the
+ * base has them; rating and popularity always.
+ */
+function referenceScore(base: MovieProfile, candidate: MovieProfile): number {
+  const ids = (people: { id: number }[]) => people.map((p) => p.id);
+  const parts: [number, number, boolean][] = [
+    [jaccard(base.genreIds, candidate.genreIds), 0.35, base.genreIds.length > 0],
+    [jaccard(base.keywords, candidate.keywords), 0.25, base.keywords.length > 0 && candidate.keywords.length > 0],
+    [jaccard(ids(base.cast), ids(candidate.cast)), 0.15, base.cast.length > 0 && candidate.cast.length > 0],
+    [jaccard(ids(base.directors), ids(candidate.directors)), 0.1, base.directors.length > 0],
+    [closeness(rating(base), rating(candidate), 3), 0.1, true],
+    [closeness(Math.log10(1 + base.popularity), Math.log10(1 + candidate.popularity), 2), 0.05, true],
+  ];
+  let raw = 0;
+  let weight = 0;
+  for (const [similarity, w, applies] of parts) {
+    if (!applies) continue;
+    raw += similarity * w;
+    weight += w;
+  }
+  return raw / weight;
+}
+
+function jaccard(a: (string | number)[], b: (string | number)[]): number {
+  if (!a.length || !b.length) return 0;
+  const norm = (v: string | number) => (typeof v === "string" ? v.toLowerCase() : v);
+  const setA = new Set(a.map(norm));
+  const setB = new Set(b.map(norm));
+  const inter = [...setA].filter((v) => setB.has(v)).length;
+  return inter / new Set([...setA, ...setB]).size;
 }
 
 test("documented weights are unchanged and sum to 1", () => {
@@ -81,16 +97,16 @@ test("documented weights are unchanged and sum to 1", () => {
   assert.ok(Math.abs(Object.values(WEIGHTS).reduce((a, b) => a + b, 0) - 1) < 1e-9);
 });
 
-test("raw score matches the documented formula exactly", () => {
+test("score matches the documented formula exactly", () => {
   const random = rng(42);
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < 300; i++) {
     const base = randomProfile(1, random);
     const candidate = randomProfile(2, random);
-    assert.ok(Math.abs(explainScore(base, candidate).raw - referenceRaw(base, candidate)) < 1e-12);
+    assert.ok(Math.abs(explainScore(base, candidate).normalized - referenceScore(base, candidate)) < 1e-12);
   }
 });
 
-test("normalization never changes the ranking", () => {
+test("ranking follows the normalized score, then adjusted rating, then id", () => {
   const random = rng(7);
   for (let trial = 0; trial < 50; trial++) {
     const base = randomProfile(0, random);
@@ -99,8 +115,8 @@ test("normalization never changes the ranking", () => {
     const reference = [...candidates]
       .sort(
         (a, b) =>
-          Math.round(referenceRaw(base, b) * 1e9) - Math.round(referenceRaw(base, a) * 1e9) ||
-          b.voteAverage - a.voteAverage ||
+          Math.round(referenceScore(base, b) * 1e9) - Math.round(referenceScore(base, a) * 1e9) ||
+          Math.round(rating(b) * 1e9) - Math.round(rating(a) * 1e9) ||
           a.id - b.id
       )
       .map((m) => m.id);
@@ -114,6 +130,7 @@ test("% match is 0–100 and normalized over signals the base movie actually has
   const perfect = profile({ id: 2, genreIds: [878], genreNames: ["Science Fiction"] });
   const breakdown = explainScore(base, perfect);
   assert.ok(Math.abs(breakdown.applicableWeight - (0.35 + 0.1 + 0.05)) < 1e-12);
+  assert.equal(breakdown.normalized, 1);
   assert.equal(scoreMovie(base, perfect).score, 100);
 
   const random = rng(3);
@@ -232,4 +249,39 @@ test("popularity is closeness on a log scale, so blockbusters don't win by defau
   assert.equal(explainScore(cultFavourite, blockbuster).signals.popularity, 0);
   // Symmetric.
   assert.equal(explainScore(blockbuster, cultFavourite).signals.popularity, explainScore(cultFavourite, blockbuster).signals.popularity);
+});
+
+test("a candidate with no keywords or cast on TMDB is judged on the signals that remain", () => {
+  const base = profile({ id: 1, genreIds: [878], keywords: ["space", "wormhole"], cast: [{ id: 1, name: "A" }] });
+  const noData = profile({ id: 2, genreIds: [878] });
+  const breakdown = explainScore(base, noData);
+
+  const byName = Object.fromEntries(breakdown.explanation.map((e) => [e.signal, e]));
+  assert.equal(byName.keyword.applicable, false);
+  assert.equal(byName.cast.applicable, false);
+  assert.equal(byName.keyword.contribution, 0);
+  // genre + director (base has none → not applicable) + rating + popularity
+  assert.ok(Math.abs(breakdown.applicableWeight - (0.35 + 0.1 + 0.05)) < 1e-12);
+  assert.equal(scoreMovie(base, noData).score, 100);
+
+  // Having keywords that don't overlap is evidence of difference, so that still counts as 0.
+  const differentThemes = profile({ id: 3, genreIds: [878], keywords: ["romance"], cast: [{ id: 9, name: "Z" }] });
+  const different = explainScore(base, differentThemes);
+  assert.equal(different.explanation.find((e) => e.signal === "keyword")?.applicable, true);
+  assert.ok(Math.abs(different.applicableWeight - 0.9) < 1e-12);
+  assert.ok(scoreMovie(base, differentThemes).score < scoreMovie(base, noData).score);
+});
+
+test("the explanation lists every signal with its weight, and contributions add up to the score", () => {
+  const random = rng(11);
+  for (let i = 0; i < 100; i++) {
+    const breakdown = explainScore(randomProfile(1, random), randomProfile(2, random));
+    assert.deepEqual(
+      breakdown.explanation.map((e) => [e.signal, e.weight]),
+      Object.entries(WEIGHTS)
+    );
+    const total = breakdown.explanation.reduce((sum, e) => sum + e.contribution, 0);
+    assert.ok(Math.abs(total - breakdown.normalized) < 1e-12);
+    for (const e of breakdown.explanation) assert.ok(e.similarity >= 0 && e.similarity <= 1);
+  }
 });
