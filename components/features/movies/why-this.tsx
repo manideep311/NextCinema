@@ -9,10 +9,10 @@ export interface MatchExplanation {
 const SIGNAL_LABELS: Record<SignalExplanation["signal"], string> = {
   genre: "Genres",
   keyword: "Keywords",
-  cast: "Top-billed cast",
+  cast: "Cast",
   director: "Director",
-  rating: "Rating (closeness)",
-  popularity: "Popularity (closeness)",
+  rating: "Similar rating",
+  popularity: "Similar popularity",
 };
 
 function percent(value: number): string {
@@ -41,11 +41,11 @@ export function WhyThis({ explanation, score }: { explanation: MatchExplanation;
         <ul className="space-y-1.5">
           {explanation.signals.map((signal) => (
             <li key={signal.signal}>
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={signal.applicable ? "text-text" : "text-muted"}>{SIGNAL_LABELS[signal.signal]}</span>
-                <span className="text-muted tabular-nums shrink-0">
-                  {signal.applicable ? `${percent(signal.similarity)} · weight ${percent(signal.weight)}` : "no data"}
+              <div className="flex items-baseline justify-between gap-1.5">
+                <span className={signal.applicable ? "text-text" : "text-muted"}>
+                  {SIGNAL_LABELS[signal.signal]} <span className="text-muted tabular-nums">×{percent(signal.weight)}</span>
                 </span>
+                <span className="text-muted tabular-nums shrink-0">{signal.applicable ? percent(signal.similarity) : "no data"}</span>
               </div>
               <div className="h-1 mt-0.5 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
                 {signal.applicable && (
@@ -56,7 +56,7 @@ export function WhyThis({ explanation, score }: { explanation: MatchExplanation;
           ))}
         </ul>
         <p className="text-muted leading-snug">
-          {score}% match = the weighted average of the{" "}
+          Bars show similarity; ×n% is each signal&apos;s weight. {score}% match is the weighted average of the{" "}
           {applicableWeight < 0.999 ? `signals with data (${percent(applicableWeight)} of the total weight)` : "signals above"}.
         </p>
       </div>

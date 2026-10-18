@@ -32,11 +32,11 @@ test('"Why this?" shows every signal with its similarity and weight, and marks m
 
   assert.match(html, /Why this\?/);
   assert.match(html, /Compared with <span[^>]*>Interstellar<\/span>/);
-  for (const label of ["Genres", "Keywords", "Top-billed cast", "Director", "Rating (closeness)", "Popularity (closeness)"]) {
+  for (const label of ["Genres", "Keywords", "Cast", "Director", "Similar rating", "Similar popularity"]) {
     assert.ok(html.includes(label), label);
   }
-  assert.match(html, /50% · weight 35%/); // genre Jaccard {878,18} vs {878}
-  assert.match(html, /100% · weight 10%/); // same director
+  assert.match(html, /Genres <span[^>]*>×35%<\/span><\/span><span[^>]*>50%</); // genre Jaccard {878,18} vs {878}
+  assert.match(html, /Director <span[^>]*>×10%<\/span><\/span><span[^>]*>100%</); // same director
   assert.equal((html.match(/no data/g) ?? []).length, 2); // the pick has no keywords or cast
   assert.ok(html.includes(`${score}% match`));
 });
