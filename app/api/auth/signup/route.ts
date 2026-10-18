@@ -22,7 +22,9 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     if (error instanceof AccountUnavailableError) {
-      return jsonError(409, error.message, PRIVATE_NO_STORE);
+      // Not 409: a distinct "conflict" status would confirm the email is registered.
+      // 400 + a generic message reads the same as any other rejected signup.
+      return jsonError(400, error.message, PRIVATE_NO_STORE);
     }
     return jsonError(500, "Could not create your account right now — please try again.", PRIVATE_NO_STORE);
   }

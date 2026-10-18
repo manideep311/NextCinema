@@ -78,7 +78,7 @@ async function main() {
   B.id = ((await call(B, "/api/auth/session")).data.user as { id: string }).id;
 
   const dupe = await call(null, "/api/auth/signup", { method: "POST", json: credsA });
-  check("duplicate signup rejected with a generic message", dupe.res.status === 409 && !String(dupe.data.error).toLowerCase().includes("exists"));
+  check("duplicate signup rejected with a generic message", dupe.res.status === 400 && !String(dupe.data.error).toLowerCase().includes("exists"));
   const smuggled = await call(null, "/api/auth/signup", { method: "POST", json: { ...newCredentials("x"), role: "admin" } });
   check("signup with extra 'role' field rejected", smuggled.res.status === 400);
 

@@ -20,9 +20,14 @@ export class InvalidCredentialsError extends Error {
   }
 }
 
+/**
+ * Signup refused because the email is taken. Its message and the route's
+ * status (400, the same as a validation failure) deliberately don't say
+ * so — see app/api/auth/signup/route.ts.
+ */
 export class AccountUnavailableError extends Error {
   constructor() {
-    super("Could not create an account with those details.");
+    super("Couldn't create an account with those details. If you already have an account, sign in instead.");
     this.name = "AccountUnavailableError";
   }
 }
