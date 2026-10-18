@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import { FloatingMovieCard } from "@/components/features/landing/floating-movie-card";
-import { AiSearchDemo } from "@/components/features/landing/ai-search-demo";
+import { SearchDemo } from "@/components/features/landing/search-demo";
 import type { MovieProfile } from "@/types/movie";
 
 interface HeroProps {
@@ -75,7 +75,7 @@ export function Hero({ featuredMovies }: HeroProps) {
             Tell us what you&apos;re in the mood for. We&apos;ll find the movies that fit.
           </p>
 
-          <AiSearchDemo />
+          <SearchDemo />
 
           <div className="flex flex-wrap items-center gap-2 mt-5">
             <span className="text-xs text-muted mr-1">Try something like</span>
