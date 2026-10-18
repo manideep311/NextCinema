@@ -37,9 +37,9 @@ async function call(client: Client | null, path: string, init: RequestInit & { j
   }
   const res = await fetch(`${BASE}${path}`, { ...init, headers, body, redirect: "manual" });
   const setCookie = res.headers.get("set-cookie");
-  if (client && setCookie?.startsWith("cinematch_session=")) {
+  if (client && setCookie?.startsWith("nextcinema_session=")) {
     const value = setCookie.split(";")[0];
-    client.cookie = value === "cinematch_session=" ? null : value;
+    client.cookie = value === "nextcinema_session=" ? null : value;
   }
   const text = await res.text();
   let data: unknown = null;
@@ -92,7 +92,7 @@ async function main() {
   const login = await call({ cookie: null }, "/api/auth/login", { method: "POST", json: { email: credsA.email.toUpperCase(), password: credsA.password } });
   check("login works (email case-insensitive)", login.res.status === 200);
 
-  const malformed = await call({ cookie: "cinematch_session=not.a.jwt" }, "/api/auth/session");
+  const malformed = await call({ cookie: "nextcinema_session=not.a.jwt" }, "/api/auth/session");
   check("malformed session → signed out", malformed.data.user === null);
 
   const secret = new TextEncoder().encode(process.env.AUTH_SECRET ?? "");
@@ -100,18 +100,18 @@ async function main() {
   const expired = await new SignJWT({ email: credsA.email, name: credsA.name, role: "user" })
     .setProtectedHeader({ alg: "HS256" }).setSubject(A.id!).setIssuer("nextcinema").setAudience("nextcinema:web")
     .setIssuedAt(now - 10 * 86400).setExpirationTime(now - 3 * 86400).sign(secret);
-  const expiredRes = await call({ cookie: `cinematch_session=${expired}` }, "/api/favorites");
+  const expiredRes = await call({ cookie: `nextcinema_session=${expired}` }, "/api/favorites");
   check("expired session → 401 on user data", expiredRes.res.status === 401);
   const noneAlg = new UnsecuredJWT({ email: credsA.email, name: credsA.name, role: "admin" })
     .setSubject(A.id!).setIssuer("nextcinema").setAudience("nextcinema:web").setIssuedAt().setExpirationTime("1h").encode();
-  check("alg:none session → 401", (await call({ cookie: `cinematch_session=${noneAlg}` }, "/api/favorites")).res.status === 401);
+  check("alg:none session → 401", (await call({ cookie: `nextcinema_session=${noneAlg}` }, "/api/favorites")).res.status === 401);
 
-  const protectedPage = await call({ cookie: `cinematch_session=${expired}` }, "/dashboard/favorites");
+  const protectedPage = await call({ cookie: `nextcinema_session=${expired}` }, "/dashboard/favorites");
   check(
     "protected page with expired session redirects to login and clears cookie",
     protectedPage.res.status === 307 &&
       (protectedPage.res.headers.get("location") ?? "").includes("/login?redirect=%2Fdashboard%2Ffavorites") &&
-      /cinematch_session=;/.test(protectedPage.setCookie ?? "")
+      /nextcinema_session=;/.test(protectedPage.setCookie ?? "")
   );
 
   const L: Client = { cookie: login.setCookie!.split(";")[0] };

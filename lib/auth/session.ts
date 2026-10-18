@@ -2,7 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, verifySessionToken, type SessionPayload, type VerifiedSession } from "@/lib/auth/token";
+import { SESSION_COOKIE, readSessionCookie, verifySessionToken, type SessionPayload, type VerifiedSession } from "@/lib/auth/token";
 
 export { SESSION_COOKIE };
 export type { SessionPayload, VerifiedSession };
@@ -17,7 +17,7 @@ export type { SessionPayload, VerifiedSession };
  */
 export const getSession = cache(async (): Promise<VerifiedSession | null> => {
   const cookieStore = await cookies();
-  return verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+  return verifySessionToken(readSessionCookie(cookieStore).token);
 });
 
 /** Server Component/page gate: redirects to login (returning here afterwards) when signed out. */

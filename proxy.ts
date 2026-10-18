@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import {
+  LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
+  readSessionCookie,
   sessionCookieOptions,
   shouldRenewSession,
   signSessionToken,
@@ -18,20 +20,23 @@ import { INTRO_COOKIE, INTRO_HEADER } from "@/lib/intro";
  *    session itself, so authorization never depends on this file.
  * 2. Sliding session: a valid token older than a day is re-issued, so active
  *    users stay signed in while idle sessions still expire after 7 days.
- * 3. Stale cookies (expired/tampered/foreign tokens) are cleared.
+ * 3. Stale cookies (expired/tampered/foreign tokens) are cleared, and a
+ *    valid pre-rename `cinematch_session` cookie is moved to the current name.
  * 4. Marks the browsing session as having seen the opening intro, so the
  *    root layout renders it only on the session's first page load.
  */
 export async function proxy(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
+  const { token, legacy } = readSessionCookie(request.cookies);
   const session = token ? await verifySessionToken(token) : null;
+  const expire = (response: NextResponse, name: string) =>
+    response.cookies.set(name, "", { ...sessionCookieOptions(0), expires: new Date(0) });
   const { pathname, search } = request.nextUrl;
 
   if (!session && isProtectedPath(pathname)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", `${pathname}${search}`);
     const redirect = NextResponse.redirect(loginUrl);
-    if (token) redirect.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
+    if (token) expire(redirect, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
     return redirect;
   }
 
@@ -48,8 +53,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (token && !session) {
-    response.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
-  } else if (session && shouldRenewSession(session)) {
+    expire(response, legacy ? LEGACY_SESSION_COOKIE : SESSION_COOKIE);
+  } else if (session && (legacy || shouldRenewSession(session))) {
     const renewed = await signSessionToken({
       userId: session.userId,
       email: session.email,
@@ -57,6 +62,7 @@ export async function proxy(request: NextRequest) {
       role: session.role,
     });
     response.cookies.set(SESSION_COOKIE, renewed, sessionCookieOptions());
+    if (legacy) expire(response, LEGACY_SESSION_COOKIE);
   }
 
   return response;

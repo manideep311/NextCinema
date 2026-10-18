@@ -1,7 +1,9 @@
 import "server-only";
 import type { NextRequest, NextResponse } from "next/server";
 import {
+  LEGACY_SESSION_COOKIE,
   SESSION_COOKIE,
+  readSessionCookie,
   sessionCookieOptions,
   signSessionToken,
   verifySessionToken,
@@ -17,7 +19,7 @@ import { jsonError, PRIVATE_NO_STORE } from "@/lib/http";
 
 /** Route Handler variant — reads the cookie straight off the request. */
 export function getRequestSession(request: NextRequest): Promise<VerifiedSession | null> {
-  return verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  return verifySessionToken(readSessionCookie(request.cookies).token);
 }
 
 /**
@@ -39,6 +41,9 @@ export async function attachSessionCookie(response: NextResponse, payload: Sessi
   response.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
 }
 
+/** Expires the session cookie — and the pre-rename one, so sign-out leaves neither behind. */
 export function clearSessionCookie(response: NextResponse): void {
-  response.cookies.set(SESSION_COOKIE, "", { ...sessionCookieOptions(0), expires: new Date(0) });
+  for (const name of [SESSION_COOKIE, LEGACY_SESSION_COOKIE]) {
+    response.cookies.set(name, "", { ...sessionCookieOptions(0), expires: new Date(0) });
+  }
 }

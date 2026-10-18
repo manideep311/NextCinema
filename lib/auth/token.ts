@@ -6,7 +6,27 @@ import { z } from "zod";
 // and plain-Node unit tests. The token is only ever stored in an httpOnly
 // cookie; it is never exposed to browser JavaScript or logged.
 
-export const SESSION_COOKIE = "cinematch_session";
+export const SESSION_COOKIE = "nextcinema_session";
+
+/**
+ * The cookie name from before the CineMatch → NextCinema rename. Still
+ * *read* for one release so existing sign-ins survive the deploy (proxy.ts
+ * moves a valid one over to SESSION_COOKIE); it is never written. Remove
+ * after the next release.
+ */
+export const LEGACY_SESSION_COOKIE = "cinematch_session";
+
+interface CookieReader {
+  get(name: string): { value: string } | undefined;
+}
+
+/** The session token from a cookie jar — the current cookie wins; the legacy one is the fallback. */
+export function readSessionCookie(cookies: CookieReader): { token: string | undefined; legacy: boolean } {
+  const current = cookies.get(SESSION_COOKIE)?.value;
+  if (current) return { token: current, legacy: false };
+  const legacy = cookies.get(LEGACY_SESSION_COOKIE)?.value;
+  return { token: legacy || undefined, legacy: Boolean(legacy) };
+}
 
 /** Absolute lifetime of a session token. */
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
