@@ -43,6 +43,15 @@ function getClientPromise(): Promise<MongoClient> {
   return memoizeConnection(slot, () => connectClient(uri));
 }
 
+/** Closes the shared client so a test or script process can exit; the next getDb() reconnects. */
+export async function closeDb(): Promise<void> {
+  const slot = process.env.NODE_ENV === "development" ? global._mongoClientSlot : moduleSlot;
+  const pending = slot?.current;
+  if (!slot || !pending) return;
+  slot.current = undefined;
+  await (await pending.catch(() => null))?.close();
+}
+
 /** The MongoDB database handle — lazily connects on first use. */
 export async function getDb(): Promise<Db> {
   const client = await getClientPromise();
