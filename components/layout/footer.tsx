@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Logo } from "@/components/ui/logo";
 
 // Every link points at something that exists — no placeholder pages.
@@ -40,6 +41,17 @@ export function Footer() {
             </ul>
           </div>
         ))}
+
+        {/* TMDB attribution, as TMDB's API terms require: their logo plus the standard notice. */}
+        <div>
+          <h4 className="font-semibold text-sm mb-3">Data</h4>
+          <a href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer" className="inline-block">
+            <Image src="/tmdb-logo.svg" alt="The Movie Database (TMDB)" width={123} height={16} unoptimized />
+          </a>
+          <p className="text-muted text-xs mt-3 leading-relaxed">
+            This product uses the TMDB API but is not endorsed or certified by TMDB.
+          </p>
+        </div>
       </div>
 
       <div className="border-t border-white/[0.06] py-6 text-center text-muted text-xs">
