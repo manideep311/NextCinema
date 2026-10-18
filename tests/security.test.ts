@@ -198,3 +198,15 @@ test("only the user role exists; a validly signed token claiming admin or premiu
     assert.equal(await verifySessionToken(forged), null, role);
   }
 });
+
+test("rate-limit IP prefers proxy-set headers and never trusts the client-supplied first X-Forwarded-For entry", async () => {
+  const { getClientIp } = await import("@/lib/http");
+  const ip = (headers: Record<string, string>) => getClientIp(new Request("http://localhost/", { headers }));
+
+  assert.equal(ip({ "x-vercel-forwarded-for": "203.0.113.7", "x-real-ip": "198.51.100.1", "x-forwarded-for": "1.1.1.1, 203.0.113.7" }), "203.0.113.7");
+  assert.equal(ip({ "x-real-ip": "198.51.100.1", "x-forwarded-for": "1.1.1.1" }), "198.51.100.1");
+  // A client that prepends a fake address can't change its bucket: the proxy-appended last entry is used.
+  assert.equal(ip({ "x-forwarded-for": "6.6.6.6, 203.0.113.9" }), "203.0.113.9");
+  assert.equal(ip({ "x-forwarded-for": "9.9.9.9, 203.0.113.9" }), "203.0.113.9");
+  assert.equal(ip({}), "local");
+});
