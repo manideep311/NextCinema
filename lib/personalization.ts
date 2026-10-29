@@ -15,6 +15,13 @@ export interface Seed {
 
 export interface SeedRecommendations<T extends { id: number; matchScore: number }> {
   seed: Seed;
+  /**
+   * The seed's position among the user's favourites, newest = 0. It picks
+   * the weight, and it must be the *original* position: if the newest
+   * favourite's list failed to load, the second-newest keeps weight 0.8
+   * rather than being promoted to 1.
+   */
+  recencyIndex: number;
   /** That seed's ranked recommendations (each with a 0–100 matchScore). */
   recommendations: T[];
 }
@@ -33,7 +40,9 @@ export interface BlendedPick<T> {
  * weight and scoreᵢ the candidate's match against that seed (0 when it
  * isn't in that seed's list). A movie that fits several favourites rises;
  * a fit with a recent favourite counts more than one with an old one.
- * Seeds must be ordered newest first; anything in `exclude` (favourites,
+ * Each list's weight comes from its `recencyIndex`, not its position in
+ * `lists`, so dropping a list doesn't shift the others; lists at index
+ * MAX_SEEDS or beyond are ignored. Anything in `exclude` (favourites,
  * watched) is skipped. Ties: blended score, then best single
  * contribution, then TMDB id — fully deterministic.
  */
@@ -44,8 +53,9 @@ export function blendSeedRecommendations<T extends { id: number; matchScore: num
 ): BlendedPick<T>[] {
   const picks = new Map<number, BlendedPick<T> & { bestContribution: number }>();
 
-  lists.slice(0, MAX_SEEDS).forEach(({ seed, recommendations }, index) => {
-    const weight = SEED_WEIGHTS[index];
+  for (const { seed, recencyIndex, recommendations } of lists) {
+    const weight = SEED_WEIGHTS[recencyIndex];
+    if (weight === undefined) continue;
     for (const movie of recommendations) {
       if (exclude.has(movie.id)) continue;
       const contribution = (weight * movie.matchScore) / 100;
@@ -61,7 +71,7 @@ export function blendSeedRecommendations<T extends { id: number; matchScore: num
         existing.bestContribution = contribution;
       }
     }
-  });
+  }
 
   const precise = (value: number) => Math.round(value * 1e9);
   return [...picks.values()]
