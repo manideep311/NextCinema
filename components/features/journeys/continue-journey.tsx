@@ -11,7 +11,7 @@ const CONTEXT_WINDOW = 4;
 
 /** Trims a full release-order list down to a short, useful window around
  *  "next" — one watched entry for context, the next movie, and a couple
- *  of upcoming ones — instead of showing all 23 in a strip. */
+ *  of upcoming ones — instead of showing every film in a strip. */
 function contextWindow(movies: ResolvedJourneyMovie[]): ResolvedJourneyMovie[] {
   const nextIndex = movies.findIndex((m) => m.state === "next");
   if (nextIndex === -1) return movies.slice(0, CONTEXT_WINDOW);
