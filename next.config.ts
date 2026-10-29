@@ -20,11 +20,15 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
+  // Images load straight from TMDB's and YouTube's own pre-sized CDNs via a
+  // custom loader (lib/image-loader.ts), not through Next/Vercel image
+  // optimization: that has a usage quota (Vercel returned 402
+  // OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED once it ran out), and it's an
+  // image proxy we'd otherwise have to keep patched. No remote host is
+  // allowed for /_next/image, so it can't be used as a proxy either.
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "image.tmdb.org" },
-      { protocol: "https", hostname: "img.youtube.com" },
-    ],
+    loader: "custom",
+    loaderFile: "./lib/image-loader.ts",
   },
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
