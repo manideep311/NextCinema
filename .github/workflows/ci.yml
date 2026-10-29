@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   check:
-    name: Typecheck, lint, test
+    name: Typecheck, lint, test, build
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -40,3 +40,10 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Every route is dynamic and env vars are read at request time, so the
+      # build needs no secrets or placeholder values.
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
