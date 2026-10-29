@@ -87,3 +87,42 @@ test("search matching uses names/aliases, and short aliases only match whole wor
   assert.ok(matchesJourneyQuery(dc, "dc"));
   assert.ok(!matchesJourneyQuery(dc, "documentary"));
 });
+
+test("MCU chronological order matches Marvel's official Disney+ movie timeline (2026-10-22)", async () => {
+  const { orderMembers } = await import("@/lib/journeys/engine");
+  const mcu = JOURNEY_DEFINITIONS.find((d) => d.id === "mcu-infinity-saga")!;
+  assert.equal(mcu.source.kind, "curated");
+  const movies = mcu.source.kind === "curated" ? mcu.source.movies : [];
+
+  // Films only, in the order of marvel.com/articles/movies/mcu-timeline-order-disney-plus.
+  // (TMDB spells the last one "The Fantastic 4: First Steps".)
+  const official = [
+    "Captain America: The First Avenger", "Captain Marvel", "Iron Man", "Iron Man 2", "The Incredible Hulk", "Thor",
+    "The Avengers", "Thor: The Dark World", "Iron Man 3", "Captain America: The Winter Soldier", "Guardians of the Galaxy",
+    "Guardians of the Galaxy Vol. 2", "Avengers: Age of Ultron", "Ant-Man", "Captain America: Civil War", "Black Widow",
+    "Black Panther", "Spider-Man: Homecoming", "Doctor Strange", "Thor: Ragnarok", "Ant-Man and the Wasp",
+    "Avengers: Infinity War", "Avengers: Endgame", "Shang-Chi and the Legend of the Ten Rings", "Spider-Man: Far From Home",
+    "Eternals", "Spider-Man: No Way Home", "Doctor Strange in the Multiverse of Madness", "Black Panther: Wakanda Forever",
+    "Thor: Love and Thunder", "Ant-Man and the Wasp: Quantumania", "Guardians of the Galaxy Vol. 3", "The Marvels",
+    "Deadpool & Wolverine", "Captain America: Brave New World", "Thunderbolts*", "The Fantastic 4: First Steps",
+  ];
+  // Not on the official timeline yet, so it falls back to its release position (last).
+  assert.deepEqual(orderMembers(movies, "chronological").map((m) => m.title), [...official, "Spider-Man: Brand New Day"]);
+
+  // Release order is 1..n with no gaps or duplicates and follows release year.
+  const release = orderMembers(movies, "release");
+  assert.deepEqual(release.map((m) => m.releaseOrder), release.map((_, i) => i + 1));
+  assert.ok(release.every((m, i) => i === 0 || m.releaseYear >= release[i - 1].releaseYear));
+  assert.equal(release.at(-1)?.title, "Spider-Man: Brand New Day");
+  // Chronological positions are unique.
+  const positions = movies.flatMap((m) => (m.chronologicalOrder !== undefined ? [m.chronologicalOrder] : []));
+  assert.equal(new Set(positions).size, positions.length);
+});
+
+test("Multiverse Saga films belong to the MCU journey and the journey is found by 'multiverse saga'", () => {
+  for (const title of ["Spider-Man: No Way Home", "Thunderbolts*", "Spider-Man: Brand New Day", "Black Widow"]) {
+    assert.equal(findFranchiseDefinitionForMovie({ title })?.id, "mcu-infinity-saga", title);
+  }
+  const mcu = JOURNEY_DEFINITIONS.find((d) => d.id === "mcu-infinity-saga")!;
+  assert.ok(matchesJourneyQuery(mcu, "multiverse saga"));
+});

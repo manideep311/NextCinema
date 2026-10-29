@@ -92,15 +92,24 @@ function collection(
 
 const CURATED: JourneyDefinition[] = [
   curated({
+    // The id predates the Multiverse Saga entries; it's kept so existing links and watch progress still work.
     id: "mcu-infinity-saga",
     name: "Marvel Cinematic Universe",
     shortName: "MCU",
     kind: "universe",
-    description: "The Infinity Saga — 23 films across three phases, from a billionaire in a cave to the fight for the entire universe.",
-    aliases: ["marvel", "mcu", "avengers", "infinity saga"],
+    description:
+      "The Infinity Saga and the Multiverse Saga — from a billionaire in a cave to the fight for the entire universe, and the multiverse beyond it.",
+    aliases: ["marvel", "mcu", "avengers", "infinity saga", "multiverse saga"],
     orders: ["release", "chronological", "essential"],
     minimumMovies: 10,
+    // chronologicalOrder follows Marvel's official MCU Movie Timeline on Disney+
+    // (marvel.com/articles/movies/mcu-timeline-order-disney-plus, published
+    // 2026-10-22). Films not on that timeline yet have no chronologicalOrder
+    // and fall back to release position, so they sort last. isEssential marks
+    // the original Infinity Saga essentials only; Multiverse Saga films aren't
+    // flagged because there's no documented list to follow.
     movies: [
+      // The Infinity Saga
       { title: "Iron Man", releaseYear: "2008", releaseOrder: 1, chronologicalOrder: 3, isEssential: true },
       { title: "The Incredible Hulk", releaseYear: "2008", releaseOrder: 2, chronologicalOrder: 5 },
       { title: "Iron Man 2", releaseYear: "2010", releaseOrder: 3, chronologicalOrder: 4 },
@@ -114,16 +123,33 @@ const CURATED: JourneyDefinition[] = [
       { title: "Avengers: Age of Ultron", releaseYear: "2015", releaseOrder: 11, chronologicalOrder: 13, isEssential: true },
       { title: "Ant-Man", releaseYear: "2015", releaseOrder: 12, chronologicalOrder: 14 },
       { title: "Captain America: Civil War", releaseYear: "2016", releaseOrder: 13, chronologicalOrder: 15, isEssential: true },
-      { title: "Doctor Strange", releaseYear: "2016", releaseOrder: 14, chronologicalOrder: 18 },
+      { title: "Doctor Strange", releaseYear: "2016", releaseOrder: 14, chronologicalOrder: 19 },
       { title: "Guardians of the Galaxy Vol. 2", releaseYear: "2017", releaseOrder: 15, chronologicalOrder: 12 },
-      { title: "Spider-Man: Homecoming", releaseYear: "2017", releaseOrder: 16, chronologicalOrder: 17 },
-      { title: "Thor: Ragnarok", releaseYear: "2017", releaseOrder: 17, chronologicalOrder: 19, isEssential: true },
-      { title: "Black Panther", releaseYear: "2018", releaseOrder: 18, chronologicalOrder: 16, isEssential: true },
-      { title: "Avengers: Infinity War", releaseYear: "2018", releaseOrder: 19, chronologicalOrder: 20, isEssential: true },
+      { title: "Spider-Man: Homecoming", releaseYear: "2017", releaseOrder: 16, chronologicalOrder: 18 },
+      { title: "Thor: Ragnarok", releaseYear: "2017", releaseOrder: 17, chronologicalOrder: 20, isEssential: true },
+      { title: "Black Panther", releaseYear: "2018", releaseOrder: 18, chronologicalOrder: 17, isEssential: true },
+      { title: "Avengers: Infinity War", releaseYear: "2018", releaseOrder: 19, chronologicalOrder: 22, isEssential: true },
       { title: "Ant-Man and the Wasp", releaseYear: "2018", releaseOrder: 20, chronologicalOrder: 21 },
       { title: "Captain Marvel", releaseYear: "2019", releaseOrder: 21, chronologicalOrder: 2, isEssential: true },
-      { title: "Avengers: Endgame", releaseYear: "2019", releaseOrder: 22, chronologicalOrder: 22, isEssential: true },
-      { title: "Spider-Man: Far From Home", releaseYear: "2019", releaseOrder: 23, chronologicalOrder: 23 },
+      { title: "Avengers: Endgame", releaseYear: "2019", releaseOrder: 22, chronologicalOrder: 23, isEssential: true },
+      { title: "Spider-Man: Far From Home", releaseYear: "2019", releaseOrder: 23, chronologicalOrder: 25 },
+      // The Multiverse Saga
+      { title: "Black Widow", releaseYear: "2021", releaseOrder: 24, chronologicalOrder: 16 },
+      { title: "Shang-Chi and the Legend of the Ten Rings", releaseYear: "2021", releaseOrder: 25, chronologicalOrder: 24 },
+      { title: "Eternals", releaseYear: "2021", releaseOrder: 26, chronologicalOrder: 26 },
+      { title: "Spider-Man: No Way Home", releaseYear: "2021", releaseOrder: 27, chronologicalOrder: 27 },
+      { title: "Doctor Strange in the Multiverse of Madness", releaseYear: "2022", releaseOrder: 28, chronologicalOrder: 28 },
+      { title: "Thor: Love and Thunder", releaseYear: "2022", releaseOrder: 29, chronologicalOrder: 30 },
+      { title: "Black Panther: Wakanda Forever", releaseYear: "2022", releaseOrder: 30, chronologicalOrder: 29 },
+      { title: "Ant-Man and the Wasp: Quantumania", releaseYear: "2023", releaseOrder: 31, chronologicalOrder: 31 },
+      { title: "Guardians of the Galaxy Vol. 3", releaseYear: "2023", releaseOrder: 32, chronologicalOrder: 32 },
+      { title: "The Marvels", releaseYear: "2023", releaseOrder: 33, chronologicalOrder: 33 },
+      { title: "Deadpool & Wolverine", releaseYear: "2024", releaseOrder: 34, chronologicalOrder: 34 },
+      { title: "Captain America: Brave New World", releaseYear: "2025", releaseOrder: 35, chronologicalOrder: 35 },
+      { title: "Thunderbolts*", releaseYear: "2025", releaseOrder: 36, chronologicalOrder: 36 },
+      // TMDB titles it "The Fantastic 4: First Steps"; using TMDB's spelling makes the match exact.
+      { title: "The Fantastic 4: First Steps", releaseYear: "2025", releaseOrder: 37, chronologicalOrder: 37 },
+      { title: "Spider-Man: Brand New Day", releaseYear: "2026", releaseOrder: 38 },
     ],
   }),
   {

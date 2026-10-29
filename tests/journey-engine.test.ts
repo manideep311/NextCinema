@@ -120,7 +120,7 @@ test("curated journeys keep documented order and placeholders for unresolved tit
   const result = buildCuratedJourney(definition, resolutions);
   assert.equal(result.status, "available");
   if (result.status !== "available") return;
-  assert.equal(result.members.length, 23);
+  assert.equal(result.members.length, movies.length);
   assert.equal(result.members[3].id, null);
 
   const chronological = orderMembers(result.members, "chronological");
