@@ -163,9 +163,13 @@ Pools averaged 40.0 candidates; ground truth averaged 20.0 movies, of which 3.7 
   above: most reachable ground-truth movies are popular same-genre titles
   from `/discover`, so the benchmark favours methods that rank popular,
   same-genre films first.
-- **The baseline shares inputs.** The `/similar` baseline is TMDB's own
-  ordering of part of the same pool, so it has an advantage the other two
-  don't (it chose those candidates).
+- **The `/similar` baseline is a weak reference.** It isn't an independent
+  ranker: it keeps TMDB's own order for the `/similar` part of the pool and
+  puts the `/discover` candidates after it. `/similar` rarely returns the
+  ground-truth movies (0.3 of the 3.7 reachable per seed), so this ordering
+  fills its top 10 with non-matches and scores near zero (precision@10
+  0.010). That measures how little `/similar` overlaps `/recommendations`,
+  not how useful `/similar` is to people.
 - **Live data.** TMDB lists, votes and popularity change daily, so runs on
   different dates aren't strictly comparable. The script caches responses
   under `node_modules/.cache/nextcinema-eval`, so re-runs on the same cache
