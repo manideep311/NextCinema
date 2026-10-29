@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:indexes": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local lib/db/create-indexes.ts",
-    "test": "tsx --conditions=react-server --test tests/*.test.ts && tsx --test tests/*.test.tsx",
+    "test": "tsx --conditions=react-server --experimental-test-module-mocks --test tests/*.test.ts && tsx --test tests/*.test.tsx",
     "eval": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/evaluate-recommendations.ts",
     "verify:live": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/verify-live.ts"
   },
@@ -20,12 +20,12 @@
     "jose": "^5.9.6",
     "lucide-react": "^1.28.0",
     "mongodb": "^6.21.0",
-    "next": "16.2.12",
+    "next": "16.4.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^3.24.1"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -33,7 +33,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.12",
+    "eslint-config-next": "16.4.3",
     "mongodb-memory-server": "^10.4.3",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",

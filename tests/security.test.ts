@@ -210,3 +210,16 @@ test("rate-limit IP prefers proxy-set headers and never trusts the client-suppli
   assert.equal(ip({ "x-forwarded-for": "9.9.9.9, 203.0.113.9" }), "203.0.113.9");
   assert.equal(ip({}), "local");
 });
+
+test("validation messages survive the zod 4 migration", () => {
+  const first = (result: { success: boolean; error?: { issues: { message: string }[] } }) => result.error?.issues[0]?.message;
+  assert.equal(first(signupSchema.safeParse({ name: "A", email: 123, password: "12345678" })), "Enter a valid email address");
+  assert.equal(first(signupSchema.safeParse({ name: "A", email: "nope", password: "12345678" })), "Enter a valid email address");
+  assert.equal(first(signupSchema.safeParse({ name: "A", email: "a@b.co", password: "123" })), "Password must be at least 8 characters");
+  assert.equal(first(loginSchema.safeParse({ email: "a@b.co", password: 5 })), "Password is required");
+  assert.equal(first(movieRefBodySchema.safeParse({ movieId: "157336" })), "Invalid movie id");
+  assert.equal(first(movieRefBodySchema.safeParse({ movieId: 1.5 })), "Invalid movie id");
+  // Strict objects still reject smuggled keys, and emails are still trimmed and lower-cased.
+  assert.equal(movieRefBodySchema.safeParse({ movieId: 1, userId: "x" }).success, false);
+  assert.equal(loginSchema.parse({ email: "  Alice@Example.COM ", password: "x" }).email, "alice@example.com");
+});

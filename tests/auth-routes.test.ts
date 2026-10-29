@@ -51,6 +51,36 @@ test("signing up with a taken email gives the same generic 400 as any rejected s
   assert.equal(invalid.status, duplicate.status);
 });
 
+test("a taken email and invalid input get byte-identical responses", async () => {
+  const taken = await signup(post("/api/auth/signup", { ...ALICE, email: "alice@example.com", name: "Other" }));
+  const badEmail = await signup(post("/api/auth/signup", { ...ALICE, email: "not-an-email" }));
+  const shortPassword = await signup(post("/api/auth/signup", { ...ALICE, email: "new@example.com", password: "123" }));
+  const takenBody = await taken.text();
+  for (const response of [badEmail, shortPassword]) {
+    assert.equal(response.status, taken.status);
+    assert.equal(await response.text(), takenBody);
+  }
+});
+
+test("signing up with a taken email pays the same password-hashing cost as a new account", async () => {
+  const { createUser } = await import("@/services/auth");
+  const time = async (fn: () => Promise<unknown>) => {
+    const started = performance.now();
+    await fn().catch(() => {});
+    return performance.now() - started;
+  };
+  const median = (values: number[]) => [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)];
+
+  const taken: number[] = [];
+  const fresh: number[] = [];
+  for (let i = 0; i < 3; i++) {
+    taken.push(await time(() => createUser({ name: "X", email: "alice@example.com", password: "another password" })));
+    fresh.push(await time(() => createUser({ name: "X", email: `timing-${i}@example.com`, password: "another password" })));
+  }
+  // scrypt dominates both paths (tens of ms); skipping it on the taken path made that ~20x faster.
+  assert.ok(median(taken) > median(fresh) * 0.5, `taken ${median(taken).toFixed(1)}ms vs new ${median(fresh).toFixed(1)}ms`);
+});
+
 test("signup rejects unknown fields such as a smuggled role", async () => {
   const response = await signup(post("/api/auth/signup", { ...ALICE, email: "mallory@example.com", role: "admin" }));
   assert.equal(response.status, 400);

@@ -77,7 +77,8 @@ async function computeForYou(userId: string, limit: number): Promise<ForYouResul
     getMovieWithExtras(newest.id).catch(() => null),
   ]);
   const seedLists = lists.flatMap((result, index) =>
-    result.status === "fulfilled" ? [{ seed: seeds[index], recommendations: result.value }] : []
+    // recencyIndex is the seed's original position, so a failed list never promotes an older favourite's weight.
+    result.status === "fulfilled" ? [{ seed: seeds[index], recencyIndex: index, recommendations: result.value }] : []
   );
   if (seedLists.length === 0) throw new Error("No recommendations available for any favorite.");
 

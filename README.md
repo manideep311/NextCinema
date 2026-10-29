@@ -9,8 +9,15 @@ strongly, and how much each one weighs.
 
 **Live:** https://nextcinema-311.vercel.app
 
-> **[TODO: owner]** Screenshots: the landing page, a movie page with the
-> **Why this?** panel open, and the For You section.
+![Landing page](docs/screenshots/landing.webp)
+
+| A movie page with **Why this?** open | For You, blended from three favourites |
+|---|---|
+| ![Similar Movies for Interstellar with the Why this? breakdown open](docs/screenshots/why-this.webp) | ![For You section blended from Interstellar, Inception and The Matrix](docs/screenshots/for-you.webp) |
+
+<sub>Captured on 2026-10-29 from a local production build, with live TMDB data
+and a throwaway demo account whose favourites are The Matrix, Inception and
+Interstellar. Scores drift as TMDB votes and popularity change.</sub>
 
 ## What it does
 
@@ -220,15 +227,19 @@ and pull request.
   `Secure`-in-production cookie; issuer, audience, expiry and payload shape
   are validated. Tokens last 7 days and are renewed after a day of use. Each
   token carries the user's `tokenVersion`. Signing out increments it, which
-  revokes every earlier token. Authenticated API routes check the version on
-  every call, and `proxy.ts` refuses to renew a token whose version is
-  behind.
+  revokes every earlier token: authenticated API routes and server-rendered
+  pages (`getSession`) check the version on every request, and `proxy.ts`
+  refuses to renew a token whose version is behind. If the version lookup
+  fails, API routes that touch user data fail closed (503) while page
+  rendering keeps the session.
 - **Authorization.** User ids come only from the verified session. Strict
   body schemas reject client-sent `userId`, `role` and similar fields, and
   movie snapshots are resolved from TMDB server-side.
-- **Passwords.** scrypt (N=2¹⁵, r=8, p=1). Unknown emails pay the same hashing
-  cost as wrong passwords and get the same error. A signup with a taken email
-  gets the same generic 400 as any rejected signup.
+- **Passwords.** scrypt (N=2¹⁵, r=8, p=1). At login, unknown emails pay the
+  same hashing cost as wrong passwords and get the same error. At signup, the
+  password is hashed before the duplicate check, so a taken email takes as
+  long as a new account, and a taken email and invalid input get the same 400
+  with the same message.
 - **Rate limits.** In-memory fixed windows keyed by user or client IP. The IP
   comes from proxy-set headers (`x-vercel-forwarded-for`, `x-real-ip`, then
   the last `X-Forwarded-For` hop), never the client-supplied first hop. See
@@ -243,10 +254,6 @@ and pull request.
   with TMDB's own recommender on 50 popular seeds (see
   [`docs/evaluation.md`](docs/evaluation.md)). It hasn't been checked against
   real user judgements.
-- **Pages check revocation only at renewal.** API routes reject a revoked
-  token on every call. Server-rendered pages only verify the signature, so a
-  token copied before sign-out can still render account pages until the
-  proxy next tries to renew it, at most a day after it was issued.
 - **No password change, reset or email verification.** Without
   verification, a successful signup still reveals that an email was free.
 - **Rate limits are per server instance** (in-memory), so they're

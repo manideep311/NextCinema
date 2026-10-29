@@ -22,7 +22,7 @@ export const movieIdParamSchema = z
 
 /** A movie id inside a JSON body. */
 export const movieIdValueSchema = z
-  .number({ invalid_type_error: "Invalid movie id" })
+  .number({ error: "Invalid movie id" })
   .int("Invalid movie id")
   .positive("Invalid movie id")
   .max(MAX_TMDB_ID, "Invalid movie id");
@@ -70,7 +70,7 @@ export const watchedBodySchema = z
 /** Parses a single optional query-string value, returning `fallback` when absent. */
 export function parseOptionalParam<T>(
   value: string | null,
-  schema: z.ZodType<T, z.ZodTypeDef, string>,
+  schema: z.ZodType<T, string>,
   fallback: T
 ): { ok: true; value: T } | { ok: false; error: string } {
   if (value === null || value === "") return { ok: true, value: fallback };

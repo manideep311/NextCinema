@@ -13,8 +13,8 @@ test("seed weights favour recent favourites and cover at most five seeds", () =>
 test("a fit with the newest favourite outranks the same fit with an older one", () => {
   const picks = blendSeedRecommendations(
     [
-      { seed: seed(1), recommendations: [rec(10, 80)] },
-      { seed: seed(2), recommendations: [rec(20, 80)] },
+      { seed: seed(1), recencyIndex: 0, recommendations: [rec(10, 80)] },
+      { seed: seed(2), recencyIndex: 1, recommendations: [rec(20, 80)] },
     ],
     new Set(),
     10
@@ -27,9 +27,9 @@ test("a fit with the newest favourite outranks the same fit with an older one", 
 test("a movie that fits several favourites rises, and is explained by its strongest seed", () => {
   const picks = blendSeedRecommendations(
     [
-      { seed: seed(1), recommendations: [rec(10, 90), rec(30, 50)] },
-      { seed: seed(2), recommendations: [rec(30, 70)] },
-      { seed: seed(3), recommendations: [rec(30, 60)] },
+      { seed: seed(1), recencyIndex: 0, recommendations: [rec(10, 90), rec(30, 50)] },
+      { seed: seed(2), recencyIndex: 1, recommendations: [rec(30, 70)] },
+      { seed: seed(3), recencyIndex: 2, recommendations: [rec(30, 60)] },
     ],
     new Set(),
     10
@@ -42,13 +42,28 @@ test("a movie that fits several favourites rises, and is explained by its strong
 });
 
 test("excluded movies are skipped, seeds beyond five are ignored, and the limit applies", () => {
-  const lists = Array.from({ length: 7 }, (_, i) => ({ seed: seed(i + 1), recommendations: [rec(100 + i, 50), rec(1, 99)] }));
+  const lists = Array.from({ length: 7 }, (_, i) => ({ seed: seed(i + 1), recencyIndex: i, recommendations: [rec(100 + i, 50), rec(1, 99)] }));
   const picks = blendSeedRecommendations(lists, new Set([1]), 10);
   assert.deepEqual(picks.map((p) => p.movie.id).sort(), [100, 101, 102, 103, 104]);
   assert.equal(blendSeedRecommendations(lists, new Set([1]), 2).length, 2);
 });
 
 test("blending is deterministic regardless of tie order", () => {
-  const lists = [{ seed: seed(1), recommendations: [rec(5, 60), rec(3, 60), rec(4, 60)] }];
+  const lists = [{ seed: seed(1), recencyIndex: 0, recommendations: [rec(5, 60), rec(3, 60), rec(4, 60)] }];
   assert.deepEqual(blendSeedRecommendations(lists, new Set(), 10).map((p) => p.movie.id), [3, 4, 5]);
+});
+
+test("a failed newest favourite doesn't promote the next one: weights follow original recency", () => {
+  // Favourite 1 (newest) failed to load, so only favourites 2 and 3 have lists.
+  const picks = blendSeedRecommendations(
+    [
+      { seed: seed(2), recencyIndex: 1, recommendations: [rec(20, 100)] },
+      { seed: seed(3), recencyIndex: 2, recommendations: [rec(30, 100)] },
+    ],
+    new Set(),
+    10
+  );
+  // Weights stay 0.8 and 0.6 — not 1 and 0.8 as if the failure had never happened.
+  assert.ok(Math.abs(picks.find((p) => p.movie.id === 20)!.blendedScore - 0.8) < 1e-12);
+  assert.ok(Math.abs(picks.find((p) => p.movie.id === 30)!.blendedScore - 0.6) < 1e-12);
 });
