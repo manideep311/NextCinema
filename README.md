@@ -9,8 +9,15 @@ strongly, and how much each one weighs.
 
 **Live:** https://nextcinema-311.vercel.app
 
-> **[TODO: owner]** Screenshots: the landing page, a movie page with the
-> **Why this?** panel open, and the For You section.
+![Landing page](docs/screenshots/landing.webp)
+
+| A movie page with **Why this?** open | For You, blended from three favourites |
+|---|---|
+| ![Similar Movies for Interstellar with the Why this? breakdown open](docs/screenshots/why-this.webp) | ![For You section blended from Interstellar, Inception and The Matrix](docs/screenshots/for-you.webp) |
+
+<sub>Captured on 2026-10-29 from a local production build, with live TMDB data
+and a throwaway demo account whose favourites are The Matrix, Inception and
+Interstellar. Scores drift as TMDB votes and popularity change.</sub>
 
 ## What it does
 
