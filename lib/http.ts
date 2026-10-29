@@ -1,6 +1,6 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import type { ZodType, ZodTypeDef } from "zod";
+import type { ZodType } from "zod";
 import { checkRateLimit, type RateLimitPolicyName } from "@/lib/rate-limit";
 
 // Shared request/response plumbing for Route Handlers: consistent JSON
@@ -52,7 +52,7 @@ async function readBodyWithLimit(request: Request, maxBytes: number): Promise<st
  */
 export async function parseJsonBody<T>(
   request: Request,
-  schema: ZodType<T, ZodTypeDef, unknown>,
+  schema: ZodType<T, unknown>,
   maxBytes = DEFAULT_MAX_BODY_BYTES
 ): Promise<ParseResult<T>> {
   const contentType = request.headers.get("content-type") ?? "";
