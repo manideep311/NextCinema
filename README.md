@@ -228,9 +228,11 @@ and pull request.
 - **Authorization.** User ids come only from the verified session. Strict
   body schemas reject client-sent `userId`, `role` and similar fields, and
   movie snapshots are resolved from TMDB server-side.
-- **Passwords.** scrypt (N=2¹⁵, r=8, p=1). Unknown emails pay the same hashing
-  cost as wrong passwords and get the same error. A signup with a taken email
-  gets the same generic 400 as any rejected signup.
+- **Passwords.** scrypt (N=2¹⁵, r=8, p=1). At login, unknown emails pay the
+  same hashing cost as wrong passwords and get the same error. At signup, the
+  password is hashed before the duplicate check, so a taken email takes as
+  long as a new account, and a taken email and invalid input get the same 400
+  with the same message.
 - **Rate limits.** In-memory fixed windows keyed by user or client IP. The IP
   comes from proxy-set headers (`x-vercel-forwarded-for`, `x-real-ip`, then
   the last `X-Forwarded-For` hop), never the client-supplied first hop. See
